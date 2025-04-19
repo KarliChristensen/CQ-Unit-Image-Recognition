@@ -1,6 +1,25 @@
 import keyboard
 import pyautogui
+import vgamepad
 import time
+from pynput.mouse import Controller, Button
+
+mouse = Controller()
+gamepad = vgamepad.VX360Gamepad()
+
+def simulate_controller_jitter():
+    print("Simulating controller jitter...")
+    with vgamepad.VX360Gamepad() as gamepad:
+        gamepad.right_joystick(x_value=0.1, y_value=0.1)
+        gamepad.update()
+        time.sleep(0.05)
+        gamepad.right_joystick(x_value=-0.1, y_value=-0.1)
+        gamepad.update()
+        time.sleep(0.05)
+        gamepad.right_joystick(x_value=0, y_value=0)
+        gamepad.update()
+    print("Controller jitter simulated.")
+
 
 # --- Configuration ---
 HOTKEY_CAPTURE = 'ctrl+e'
@@ -48,14 +67,18 @@ def capture_on_hotkey():
     screenshot_icon.save("icon.png")
     time.sleep(0.1)
 
-# --- Details Tab ---
+# --- Navigate to the next tab ---
 
-def navigate_next_tab():
-    print("Hotkey detected! Navigating to the details tab...")
-    pyautogui.click(DETAILS_TAB_COORDINATES)
+def navigate_to_tab_with_jitter(DETAILS_TAB_COORDINATES):
+    print(f"Moving mouse to {DETAILS_TAB_COORDINATES} and applying controller jitter...")
+    pyautogui.moveTo(DETAILS_TAB_COORDINATES, duration=0.2)
+    time.sleep(0.1)
+    simulate_controller_jitter()
+    time.sleep(0.1)
+    pyautogui.click()
+    print(f"Clicked at {DETAILS_TAB_COORDINATES} after jitter.")
 
 if __name__ == "__main__":
-    print("Press Ctrl+E to capture multiple regions. Press ESC to stop.")
-    keyboard.add_hotkey(HOTKEY_CAPTURE, capture_on_hotkey)
+    gamepad.plug()
     keyboard.wait('esc')
-    print("\nHotkey listener stopped.")
+    gamepad.unplug()
