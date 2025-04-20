@@ -45,14 +45,42 @@ def capture_on_hotkey():
     icon_region = (599, 140, 134, 134)
     screenshot_icon = pyautogui.screenshot(region=icon_region)
     screenshot_icon.save("icon.png")
+    time.sleep(0.1)  
 
 # --- Navigate to the next tab ---
 
     autoit.mouse_click("left", DETAILS_TAB_COORDINATES[0], DETAILS_TAB_COORDINATES[1])
+    time.sleep(0.2)  
 
 # --------------------------------------------- Second Capture ---------------------------------------------
 
-    time.sleep(0.2)  
+    screenshot = pyautogui.screenshot()
+    screenshot.save("attributes_background_screenshot.png")
+
+# --------------------------------------------- Configuration ------------------------------------------------
+
+    FORMATION_POTENTIAL_REGIONS = [  # Define the potential regions for up to 4 formations
+        (1729, 776, 65, 65),  # Example: top-left x, y, width, height - ADJUST THESE!
+        (1815, 776, 65, 65),  # Adjust for the position and size of the formation icons
+        (1901, 776, 65, 65),  # Add more regions if needed for a max of 4
+        (1987, 776, 65, 65),
+    ]
+    FORMATION_GREY_HEX = "#A3A3A3"
+    FORMATION_GREY_RGB = tuple(int(FORMATION_GREY_HEX[i:i+2], 16) for i in (1, 3, 5))
+    FORMATION_COLOR_TOLERANCE = 10       
+
+    captured_formations = []
+    for i, region in enumerate(FORMATION_POTENTIAL_REGIONS):
+        if is_button_present(region, FORMATION_GREY_RGB, FORMATION_COLOR_TOLERANCE):
+            filename = f"formation_{i+1}.png"
+            autoit.screen_capture(filename, region[0], region[1], region[0] + region[2], region[1] + region[3])
+            print(f"Captured formation {i+1} at {region} to {filename}")
+            captured_formations.append(filename)
+        else:
+            print(f"Formation {i+1} not present.")
+            break  # Stop if a formation is not found
+
+    print("Captured formations:", captured_formations)
 
 # --- Basic Attributes ---
 
@@ -151,8 +179,29 @@ def capture_on_hotkey():
     screenshot_unit_urban.save("unit_urban.png")                    
 
 # --- Formations ---
+
+
 # --- Unit Traits ---
-# --- Unit Orders ---
+# --- Unit Orders ---+
+
+def is_button_present(region, grey_rgb, tolerance):
+    x, y, w, h = region
+    # Sample pixels from the bottom 4 pixels of the region
+    for offset_y in range(h - 4, h):
+        # Sample a few points horizontally across the bottom bar
+        sample_points = [x + w // 4, x + w // 2, x + 3 * w // 4]
+        for sample_x in sample_points:
+            pixel_color = autoit.pixel_get_color(sample_x, y + offset_y)
+            r = (pixel_color >> 16) & 0xFF
+            g = (pixel_color >> 8) & 0xFF
+            b = pixel_color & 0xFF
+
+            # Check if the pixel color is close to the target grey
+            if abs(r - grey_rgb[0]) < tolerance and \
+               abs(g - grey_rgb[1]) < tolerance and \
+               abs(b - grey_rgb[2]) < tolerance:
+                return True  # Grey bar found
+    return False  # Grey bar not consistently found in the bottom 4 pixels
 
 if __name__ == "__main__":
     keyboard.add_hotkey(HOTKEY_CAPTURE, capture_on_hotkey)
