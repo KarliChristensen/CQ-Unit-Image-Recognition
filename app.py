@@ -11,6 +11,73 @@ DETAILS_TAB_COORDINATES = (2582, 1353)
 VETERANCY_TAB_COORDINATES = (2582, 1353)
 MASTERY_TAB_COORDINATES = (2582, 1353)
 
+POPUP_BACKGROUND_HEX = "#1E1E1E"
+UI_BACKGROUND_HEX = "#171C20"
+COLOR_TOLERANCE = 10  # Adjust as needed
+
+FORMATION_ORDER_OFFSET_X = 1
+FORMATION_ORDER_OFFSET_Y = 1
+TRAIT_OFFSET_X = 60  # Replace with your determined consistent x-offset for traits
+TRAIT_OFFSET_Y = 20  # Replace with your determined consistent y-offset for traits
+
+def hex_to_rgb(hex_color):
+    hex_color = hex_color.lstrip('#')
+    return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+
+POPUP_BACKGROUND_RGB = hex_to_rgb(POPUP_BACKGROUND_HEX)
+UI_BACKGROUND_RGB = hex_to_rgb(UI_BACKGROUND_HEX)
+
+def colors_are_similar(rgb1, rgb2, tolerance):
+    return all(abs(c1 - c2) <= tolerance for c1, c2 in zip(rgb1, rgb2))
+
+def capture_hover_popup(hovered_element_top_left, element_type, hovered_element_width, hovered_element_height):
+    if element_type in ["formation", "order"]:
+        bottom_right_offset_x = 1
+        bottom_right_offset_y = 1
+    elif element_type == "trait":
+        bottom_right_offset_x = ... # Your trait offset
+        bottom_right_offset_y = ... # Your trait offset
+    else:
+        print(f"Unknown element type: {element_type}")
+        return None
+
+    predicted_bottom_right_x = hovered_element_top_left[0] + hovered_element_width + bottom_right_offset_x
+    predicted_bottom_right_y = hovered_element_top_left[1] + hovered_element_height + bottom_right_offset_y
+
+    # --- Scan for Top Boundary ---
+    top_boundary_y = predicted_bottom_right_y
+    for y in range(predicted_bottom_right_y, hovered_element_top_left[1] - 5, -1):
+        pixel_color = autoit.pixel_get_color(predicted_bottom_right_x - 10, y) # Sample inside
+        r = (pixel_color >> 16) & 0xFF
+        g = (pixel_color >> 8) & 0xFF
+        b = pixel_color & 0xFF
+        current_rgb = (r, g, b)
+        if not colors_are_similar(current_rgb, POPUP_BACKGROUND_RGB, COLOR_TOLERANCE):
+            top_boundary_y = y + 1
+            break
+        if predicted_bottom_right_y - y > 200: # Safety break
+            break
+
+    # --- Scan for Left Boundary ---
+    left_boundary_x = predicted_bottom_right_x
+    for x in range(predicted_bottom_right_x, hovered_element_top_left[0] - 5, -1):
+        pixel_color = autoit.pixel_get_color(x, top_boundary_y + 10) # Sample inside
+        r = (pixel_color >> 16) & 0xFF
+        g = (pixel_color >> 8) & 0xFF
+        b = pixel_color & 0xFF
+        current_rgb = (r, g, b)
+        if not colors_are_similar(current_rgb, POPUP_BACKGROUND_RGB, COLOR_TOLERANCE):
+            left_boundary_x = x + 1
+            break
+        if predicted_bottom_right_x - x > 300: # Safety break
+            break
+
+    popup_region = (left_boundary_x, top_boundary_y, predicted_bottom_right_x - left_boundary_x + 1, predicted_bottom_right_y - top_boundary_y + 1)
+    filename = f"hover_popup_{element_type}.png"
+    pyautogui.screenshot(filename, region=popup_region)
+    print(f"Captured {element_type} pop-up at {popup_region} to {filename}")
+    return filename
+
 # --------------------------------------------- First Capture ------------------------------------------------
 
 def capture_on_hotkey():
@@ -79,18 +146,17 @@ def capture_on_hotkey():
     ]
 
     UNIT_TRAIT_POTENTIAL_REGIONS = [
-    (2163, 501, 325, 25),  
-    (2163, 534, 325, 25),
-    (2163, 567, 325, 25),
-    (2163, 600, 325, 25),
-    (2163, 633, 325, 25),
+        (2163, 501, 325, 25),  
+        (2163, 534, 325, 25),
+        (2163, 567, 325, 25),
+        (2163, 600, 325, 25),
+        (2163, 633, 325, 25),
 
     ]
     UNIT_TRAIT_TARGET_COLORS_RGB = [
-    (133, 183, 85),  
-    (174, 53, 26), 
-    (159, 160, 160),
-
+        (133, 183, 85),  
+        (174, 53, 26), 
+        (159, 160, 160),
     ]
     UNIT_TRAIT_COLOR_TOLERANCE = 10
 
@@ -100,29 +166,50 @@ def capture_on_hotkey():
     for i, region in enumerate(FORMATION_POTENTIAL_REGIONS):
         if is_button_present(region, BOX_GREY_RGB, BOX_COLOR_TOLERANCE):
             filename = f"formation_{i+1}.png"
-            # Revert to pyautogui for screenshotting formations
             pyautogui.screenshot(filename, region=region)
             print(f"Captured formation {i+1} at {region} to {filename}")
             captured_formations.append(filename)
+
+            # --- Capture Hover Pop-up for Formation ---
+            center_x = region[0] + region[2] // 2
+            center_y = region[1] + region[3] // 2
+            autoit.mouse_move(center_x, center_y)
+            time.sleep(0.5) # Give time for the pop-up to appear
+            # Add width (region[2]) and height (region[3]) here
+            popup_filename = capture_hover_popup((region[0], region[1]), "formation", region[2], region[3])
+            print(f"Captured formation pop-up: {popup_filename}")
+            autoit.mouse_move(10, 10) # Move mouse away to clear pop-up (optional)
+            time.sleep(0.2)
+
         else:
             print(f"No more formations, moving on...")
             break
-
     print("Captured formations:", captured_formations)
 
     captured_orders = []
     for i, region in enumerate(ORDERS_POTENTIAL_REGIONS):
         if is_button_present(region, BOX_GREY_RGB, BOX_COLOR_TOLERANCE):
             filename = f"order_{i+1}.png"
-            # Revert to pyautogui for screenshotting formations
             pyautogui.screenshot(filename, region=region)
             print(f"Captured order {i+1} at {region} to {filename}")
             captured_orders.append(filename)
+
+            # --- Capture Hover Pop-up for Order ---
+            center_x = region[0] + region[2] // 2
+            center_y = region[1] + region[3] // 2
+            autoit.mouse_move(center_x, center_y)
+            time.sleep(0.5) # Give time for the pop-up to appear
+            # Add width (region[2]) and height (region[3]) here
+            popup_filename = capture_hover_popup((region[0], region[1]), "order", region[2], region[3])
+            print(f"Captured order pop-up: {popup_filename}")
+            autoit.mouse_move(10, 10) # Move mouse away to clear pop-up (optional)
+            time.sleep(0.2)
+
         else:
             print(f"No more orders, moving on...")
             break
-
     print("Captured orders:", captured_orders)
+
 
     captured_traits = []
     for i, region in enumerate(UNIT_TRAIT_POTENTIAL_REGIONS):
@@ -131,9 +218,22 @@ def capture_on_hotkey():
             pyautogui.screenshot(filename, region=region)
             print(f"Captured unit trait {i+1} at {region} to {filename}")
             captured_traits.append(filename)
+
+            # --- Capture Hover Pop-up for Trait ---
+            center_x = region[0] + region[2] // 2
+            center_y = region[1] + region[3] // 2
+            autoit.mouse_move(center_x, center_y)
+            time.sleep(0.5) # Give time for the pop-up to appear
+            # Add width (region[2]) and height (region[3]) here
+            popup_filename = capture_hover_popup((region[0], region[1]), "trait", region[2], region[3])
+            print(f"Captured trait pop-up: {popup_filename}")
+            autoit.mouse_move(10, 10) # Move mouse away to clear pop-up (optional)
+            time.sleep(0.2)
+
         else:
             print(f"Unit trait {i+1} not present.")
-            print("Captured unit traits:", captured_traits)
+            break
+    print("Captured unit traits:", captured_traits)
 
 # --- Basic Attributes ---
 
