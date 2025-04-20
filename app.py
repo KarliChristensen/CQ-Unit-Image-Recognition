@@ -5,7 +5,8 @@ import autoit
 
 # --------------------------------------------- Configuration ------------------------------------------------
 
-HOTKEY_CAPTURE = 'ctrl+e'
+HOTKEY_START = 'ctrl+e'
+HOTKEY_END = 'ctrl+s'
 DETAILS_TAB_COORDINATES = (2582, 1353)
 VETERANCY_TAB_COORDINATES = (2582, 1353)
 MASTERY_TAB_COORDINATES = (2582, 1353)
@@ -59,28 +60,80 @@ def capture_on_hotkey():
 
 # --------------------------------------------- Configuration ------------------------------------------------
 
-    FORMATION_POTENTIAL_REGIONS = [  # Define the potential regions for up to 4 formations
-        (1729, 776, 65, 65),  # Example: top-left x, y, width, height - ADJUST THESE!
-        (1815, 776, 65, 65),  # Adjust for the position and size of the formation icons
-        (1901, 776, 65, 65),  # Add more regions if needed for a max of 4
-        (1987, 776, 65, 65),
+    BOX_GREY_HEX = "#8C8C8C"
+    BOX_GREY_RGB = tuple(int(BOX_GREY_HEX[i:i+2], 16) for i in (1, 3, 5))
+    BOX_COLOR_TOLERANCE = 10       
+    
+    FORMATION_POTENTIAL_REGIONS = [  
+        (1730, 777, 63, 63),  
+        (1815, 777, 63, 63),  
+        (1901, 777, 63, 63),  
+        (1987, 777, 63, 63),
     ]
-    FORMATION_GREY_HEX = "#A3A3A3"
-    FORMATION_GREY_RGB = tuple(int(FORMATION_GREY_HEX[i:i+2], 16) for i in (1, 3, 5))
-    FORMATION_COLOR_TOLERANCE = 10       
+
+    ORDERS_POTENTIAL_REGIONS = [  
+        (2157, 775, 65, 65), 
+        (2242, 775, 65, 65), 
+        (2327, 775, 65, 65),
+        (2412, 775, 65, 65),
+    ]
+
+    UNIT_TRAIT_POTENTIAL_REGIONS = [
+    (2163, 501, 325, 25),  
+    (2163, 534, 325, 25),
+    (2163, 567, 325, 25),
+    (2163, 600, 325, 25),
+    (2163, 633, 325, 25),
+
+    ]
+    UNIT_TRAIT_TARGET_COLORS_RGB = [
+    (133, 183, 85),  
+    (174, 53, 26), 
+    (159, 160, 160),
+
+    ]
+    UNIT_TRAIT_COLOR_TOLERANCE = 10
+
+    # --- !!!!Boxes are measured on the inside of the intended target ---
 
     captured_formations = []
     for i, region in enumerate(FORMATION_POTENTIAL_REGIONS):
-        if is_button_present(region, FORMATION_GREY_RGB, FORMATION_COLOR_TOLERANCE):
+        if is_button_present(region, BOX_GREY_RGB, BOX_COLOR_TOLERANCE):
             filename = f"formation_{i+1}.png"
-            autoit.screen_capture(filename, region[0], region[1], region[0] + region[2], region[1] + region[3])
+            # Revert to pyautogui for screenshotting formations
+            pyautogui.screenshot(filename, region=region)
             print(f"Captured formation {i+1} at {region} to {filename}")
             captured_formations.append(filename)
         else:
-            print(f"Formation {i+1} not present.")
-            break  # Stop if a formation is not found
+            print(f"No more formations, moving on...")
+            break
 
     print("Captured formations:", captured_formations)
+
+    captured_orders = []
+    for i, region in enumerate(ORDERS_POTENTIAL_REGIONS):
+        if is_button_present(region, BOX_GREY_RGB, BOX_COLOR_TOLERANCE):
+            filename = f"order_{i+1}.png"
+            # Revert to pyautogui for screenshotting formations
+            pyautogui.screenshot(filename, region=region)
+            print(f"Captured order {i+1} at {region} to {filename}")
+            captured_orders.append(filename)
+        else:
+            print(f"No more orders, moving on...")
+            break
+
+    print("Captured orders:", captured_orders)
+
+    captured_traits = []
+    for i, region in enumerate(UNIT_TRAIT_POTENTIAL_REGIONS):
+        if is_trait_present(region, UNIT_TRAIT_TARGET_COLORS_RGB, UNIT_TRAIT_COLOR_TOLERANCE):
+            filename = f"unit_trait_{i+1}.png"
+            pyautogui.screenshot(filename, region=region)
+            print(f"Captured unit trait {i+1} at {region} to {filename}")
+            captured_traits.append(filename)
+        else:
+            print(f"Unit trait {i+1} not present.")
+            print("Captured unit traits:", captured_traits)
 
 # --- Basic Attributes ---
 
@@ -181,29 +234,48 @@ def capture_on_hotkey():
 # --- Formations ---
 
 
+
 # --- Unit Traits ---
+
+
+
 # --- Unit Orders ---+
+
+def is_trait_present(region, target_colors_rgb, tolerance):
+    x, y, w, h = region
+    bracket_offset_x = 48
+    bracket_offset_y = 14
+
+    sample_x = x + bracket_offset_x
+    sample_y = y + bracket_offset_y
+
+    pixel_color = autoit.pixel_get_color(sample_x, sample_y)
+    r = (pixel_color >> 16) & 0xFF
+    g = (pixel_color >> 8) & 0xFF
+    b = pixel_color & 0xFF
+    current_rgb = (r, g, b)
+
+    for target_color in target_colors_rgb:
+        if all(abs(current - target) < tolerance for current, target in zip(current_rgb, target_color)):
+            return True
+    return False
 
 def is_button_present(region, grey_rgb, tolerance):
     x, y, w, h = region
-    # Sample pixels from the bottom 4 pixels of the region
     for offset_y in range(h - 4, h):
-        # Sample a few points horizontally across the bottom bar
         sample_points = [x + w // 4, x + w // 2, x + 3 * w // 4]
         for sample_x in sample_points:
             pixel_color = autoit.pixel_get_color(sample_x, y + offset_y)
             r = (pixel_color >> 16) & 0xFF
             g = (pixel_color >> 8) & 0xFF
             b = pixel_color & 0xFF
-
-            # Check if the pixel color is close to the target grey
             if abs(r - grey_rgb[0]) < tolerance and \
                abs(g - grey_rgb[1]) < tolerance and \
                abs(b - grey_rgb[2]) < tolerance:
-                return True  # Grey bar found
-    return False  # Grey bar not consistently found in the bottom 4 pixels
+                return True
+    return False
 
 if __name__ == "__main__":
-    keyboard.add_hotkey(HOTKEY_CAPTURE, capture_on_hotkey)
+    keyboard.add_hotkey(HOTKEY_START, capture_on_hotkey)
     keyboard.wait('esc')
     print("\nHotkey listener stopped.")
