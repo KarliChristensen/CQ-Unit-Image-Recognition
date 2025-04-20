@@ -1,29 +1,16 @@
 import keyboard
 import pyautogui
-import vgamepad
 import time
-from pynput.mouse import Controller, Button
+import autoit
 
-mouse = Controller()
-gamepad = vgamepad.VX360Gamepad()
+# --------------------------------------------- Configuration ------------------------------------------------
 
-def simulate_controller_jitter():
-    print("Simulating controller jitter...")
-    with vgamepad.VX360Gamepad() as gamepad:
-        gamepad.right_joystick(x_value=0.1, y_value=0.1)
-        gamepad.update()
-        time.sleep(0.05)
-        gamepad.right_joystick(x_value=-0.1, y_value=-0.1)
-        gamepad.update()
-        time.sleep(0.05)
-        gamepad.right_joystick(x_value=0, y_value=0)
-        gamepad.update()
-    print("Controller jitter simulated.")
-
-
-# --- Configuration ---
 HOTKEY_CAPTURE = 'ctrl+e'
 DETAILS_TAB_COORDINATES = (2582, 1353)
+VETERANCY_TAB_COORDINATES = (2582, 1353)
+MASTERY_TAB_COORDINATES = (2582, 1353)
+
+# --------------------------------------------- First Capture ------------------------------------------------
 
 def capture_on_hotkey():
     print("Hotkey detected! Capturing multiple regions...")
@@ -31,54 +18,143 @@ def capture_on_hotkey():
     screenshot = pyautogui.screenshot()
     screenshot.save("background_screenshot.png")
 
-    # Capture Unit Name
     unit_name_region = (760, 140, 465, 60)
     screenshot_unit_name = pyautogui.screenshot(region=unit_name_region)
     screenshot_unit_name.save("unit_name.png")
 
-    # Capture Unit Stars
     unit_level_region = (760, 190, 320, 40)
     screenshot_unit_level = pyautogui.screenshot(region=unit_level_region)
     screenshot_unit_level.save("unit_level.png")
 
-    # Capture Type
     type_region = (840, 240, 480, 40)
     screenshot_type = pyautogui.screenshot(region=type_region)
     screenshot_type.save("type_region.png")
 
-    # Capture Leadership
     leadership_region = (980, 405, 55, 25)
     screenshot_leadership = pyautogui.screenshot(region=leadership_region)
     screenshot_leadership.save("leadership.png")
 
-    # Capture Strength
     strength_region = (600, 400, 55, 25)
     screenshot_strength = pyautogui.screenshot(region=strength_region)
     screenshot_strength.save("strength.png")
 
-    # Capture Maximum Level
     maxLevel_region = (790, 400, 55, 25)
     screenshot_maxLevel = pyautogui.screenshot(region=maxLevel_region)
     screenshot_maxLevel.save("maxLevel.png")
 
-    # Capture Unit Icon
     icon_region = (599, 140, 134, 134)
     screenshot_icon = pyautogui.screenshot(region=icon_region)
     screenshot_icon.save("icon.png")
-    time.sleep(0.1)
 
 # --- Navigate to the next tab ---
 
-def navigate_to_tab_with_jitter(DETAILS_TAB_COORDINATES):
-    print(f"Moving mouse to {DETAILS_TAB_COORDINATES} and applying controller jitter...")
-    pyautogui.moveTo(DETAILS_TAB_COORDINATES, duration=0.2)
-    time.sleep(0.1)
-    simulate_controller_jitter()
-    time.sleep(0.1)
-    pyautogui.click()
-    print(f"Clicked at {DETAILS_TAB_COORDINATES} after jitter.")
+    autoit.mouse_click("left", DETAILS_TAB_COORDINATES[0], DETAILS_TAB_COORDINATES[1])
+
+# --------------------------------------------- Second Capture ---------------------------------------------
+
+    time.sleep(0.2)  
+
+# --- Basic Attributes ---
+
+    unit_health_region = (1400, 450, 100, 30)
+    screenshot_unit_health = pyautogui.screenshot(region=unit_health_region)
+    screenshot_unit_health.save("unit_health.png")
+ 
+    unit_speed_region = (1400, 543, 100, 30)
+    screenshot_unit_speed = pyautogui.screenshot(region=unit_speed_region)
+    screenshot_unit_speed.save("unit_speed.png") 
+  
+    unit_range_region = (1400, 574, 100, 30)
+    screenshot_unit_range = pyautogui.screenshot(region=unit_range_region)
+    screenshot_unit_range.save("unit_range.png")
+ 
+    unit_ammo_region = (1400, 605, 100, 30)
+    screenshot_unit_ammo = pyautogui.screenshot(region=unit_ammo_region)
+    screenshot_unit_ammo.save("unit_ammo.png")
+
+    unit_labour_region = (1400, 636, 100, 30)
+    screenshot_unit_labour = pyautogui.screenshot(region=unit_labour_region)
+    screenshot_unit_labour.save("unit_labour.png")    
+    
+# --- Attack Attributes ---
+
+    unit_piercingArmourPen_region = (1400, 750, 100, 30)
+    screenshot_unit_piercingArmourPen = pyautogui.screenshot(region=unit_piercingArmourPen_region)
+    screenshot_unit_piercingArmourPen.save("piercingArmourPen.png")
+
+    unit_slashingArmourPen_region = (1400, 782, 100, 30)
+    screenshot_unit_slashingArmourPen = pyautogui.screenshot(region=unit_slashingArmourPen_region)
+    screenshot_unit_slashingArmourPen.save("unit_slashingArmourPen.png")
+
+    unit_bluntArmourPen_region = (1400, 814, 100, 30)
+    screenshot_unit_bluntArmourPen = pyautogui.screenshot(region=unit_bluntArmourPen_region)
+    screenshot_unit_bluntArmourPen.save("unit_bluntArmourPen.png")        
+
+    unit_piercingDam_region = (1400, 846, 100, 30)
+    screenshot_unit_piercingDam = pyautogui.screenshot(region=unit_piercingDam_region)
+    screenshot_unit_piercingDam.save("unit_piercingDam.png")
+
+    unit_slashingDam_region = (1400, 878, 100, 30)
+    screenshot_unit_slashingDam = pyautogui.screenshot(region=unit_slashingDam_region)
+    screenshot_unit_slashingDam.save("unit_slashingDam.png")
+
+    unit_bluntDam_region = (1400, 910, 100, 30)
+    screenshot_unit_bluntDam = pyautogui.screenshot(region=unit_bluntDam_region)
+    screenshot_unit_bluntDam.save("unit_bluntDam.png")
+
+# --- Defence Attributes ---
+
+    unit_piercingDef_region = (1400, 1020, 100, 30)
+    screenshot_unit_piercingDef = pyautogui.screenshot(region=unit_piercingDef_region)
+    screenshot_unit_piercingDef.save("unit_piercingDef.png")
+
+    unit_slashingDef_region = (1400, 1052, 100, 30)
+    screenshot_unit_slashingDef = pyautogui.screenshot(region=unit_slashingDef_region)
+    screenshot_unit_slashingDef.save("unit_slashingDef.png")
+
+    unit_bluntDef_region = (1400, 1084, 100, 30)
+    screenshot_unit_bluntDef = pyautogui.screenshot(region=unit_bluntDef_region)
+    screenshot_unit_bluntDef.save("unit_bluntDef.png")
+
+    unit_bluntDam_region = (1400, 1016, 100, 30)
+    screenshot_unit_bluntDam = pyautogui.screenshot(region=unit_bluntDam_region)
+    screenshot_unit_bluntDam.save("unit_bluntDam.png")
+
+    unit_block_region = (1400, 1048, 100, 30)
+    screenshot_unit_block = pyautogui.screenshot(region=unit_block_region)
+    screenshot_unit_block.save("unit_block.png")
+
+    unit_blockRecovery_region = (1400, 1080, 100, 30)
+    screenshot_unit_blockRecovery = pyautogui.screenshot(region=unit_blockRecovery_region)
+    screenshot_unit_blockRecovery.save("unit_blockRecovery.png")                    
+
+# --- Terrain ---
+
+    unit_desert_region = (1860, 495, 80, 30)
+    screenshot_unit_desert = pyautogui.screenshot(region=unit_desert_region)
+    screenshot_unit_desert.save("unit_desert.png")                    
+
+    unit_plain_region = (1860, 544, 80, 30)
+    screenshot_unit_plain = pyautogui.screenshot(region=unit_plain_region)
+    screenshot_unit_plain.save("unit_plain.png")                    
+
+    unit_hills_region = (1860, 583, 80, 30)
+    screenshot_unit_hills = pyautogui.screenshot(region=unit_hills_region)
+    screenshot_unit_hills.save("unit_hills.png")                    
+
+    unit_steppe_region = (1860, 622, 80, 30)
+    screenshot_unit_steppe = pyautogui.screenshot(region=unit_steppe_region)
+    screenshot_unit_steppe.save("unit_steppe.png")                    
+
+    unit_urban_region = (1860, 661, 80, 30)
+    screenshot_unit_urban = pyautogui.screenshot(region=unit_urban_region)
+    screenshot_unit_urban.save("unit_urban.png")                    
+
+# --- Formations ---
+# --- Unit Traits ---
+# --- Unit Orders ---
 
 if __name__ == "__main__":
-    gamepad.plug()
+    keyboard.add_hotkey(HOTKEY_CAPTURE, capture_on_hotkey)
     keyboard.wait('esc')
-    gamepad.unplug()
+    print("\nHotkey listener stopped.")
