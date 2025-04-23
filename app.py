@@ -1,5 +1,7 @@
 import keyboard
 import pyautogui
+from PIL import ImageColor
+import os
 import time
 import autoit
 
@@ -13,70 +15,75 @@ MASTERY_TAB_COORDINATES = (2582, 1353)
 
 POPUP_BACKGROUND_HEX = "#1E1E1E"
 UI_BACKGROUND_HEX = "#171C20"
-COLOR_TOLERANCE = 10  # Adjust as needed
+COLOR_TOLERANCE = 10
+
+""" capture_hover_popup """
 
 FORMATION_ORDER_OFFSET_X = 1
 FORMATION_ORDER_OFFSET_Y = 1
 TRAIT_OFFSET_X = 60  # Replace with your determined consistent x-offset for traits
 TRAIT_OFFSET_Y = 20  # Replace with your determined consistent y-offset for traits
 
+def capture_hover_popup(button_region, output_path="dynamic_popup.png", yellow_colors=None, title_color_hex="#9D9D9D", yellow_text_offset_up=23, yellow_text_offset_left=405):
+    try:
+        button_left, button_top, button_width, button_height = button_region
+        title_color_rgb = hex_to_rgb(title_color_hex)
+
+        if yellow_colors is None:
+            yellow_colors_hex = ["#A69879", "#AA9B7C", "#95896D"]
+            yellow_colors = [hex_to_rgb(hex_code) for hex_code in yellow_colors_hex]
+
+        def is_yellow(rgb):
+            for yellow in yellow_colors:
+                if colors_are_similar(rgb, yellow, color_tolerance=10): # Adjust tolerance as needed
+                    return True
+            return False
+
+        # Calculate potential start of the last yellow text line
+        yellow_text_x = button_left - yellow_text_offset_left
+        yellow_text_y_start = button_top - yellow_text_offset_up
+
+        # Scan upwards for the title color
+        title_top = -1
+        for y in range(yellow_text_y_start - 5, max(0, yellow_text_y_start - 100), -1): # Scan upwards
+            pixel_color = pyautogui.pixel(int(yellow_text_x), int(y))
+            if colors_are_similar(pixel_color, title_color_rgb, color_tolerance=5): # Adjust tolerance as needed
+                title_top = y
+                break
+
+        if title_top != -1:
+            # Define the pop-up region with final adjustments
+            popup_left = yellow_text_x - 5 - 10 # Add 10 pixels to the left
+            popup_top = title_top - 5 - 10 # Add 10 pixels to the top
+            popup_right = button_left # Use the left side of the hovered button as the right
+            popup_bottom = button_top # Use the top of the hovered button as the bottom
+
+            final_popup_left = max(0, int(popup_left))
+            final_popup_top = max(0, int(popup_top))
+            final_popup_right = min(pyautogui.size()[0], int(popup_right))
+            final_popup_bottom = min(pyautogui.size()[1], int(popup_bottom))
+
+            final_popup_width = final_popup_right - final_popup_left
+            final_popup_height = final_popup_bottom - final_popup_top
+
+            if final_popup_width > 0 and final_popup_height > 0:
+                screenshot = pyautogui.screenshot(region=(final_popup_left, final_popup_top, final_popup_width, final_popup_height))
+                screenshot.save(output_path)
+                print(f"Successfully captured dynamic hover pop-up to: {output_path} (text-based - final)")
+            else:
+                print("Could not determine the pop-up boundaries based on text (final).")
+        else:
+            print("Could not find the title text to define pop-up boundaries (final).")
+
+    except Exception as e:
+        print(f"Error capturing dynamic hover pop-up (text-based - final): {e}")
+
 def hex_to_rgb(hex_color):
-    hex_color = hex_color.lstrip('#')
+    hex_color = hex_color.lstrip("#")
     return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
 
-POPUP_BACKGROUND_RGB = hex_to_rgb(POPUP_BACKGROUND_HEX)
-UI_BACKGROUND_RGB = hex_to_rgb(UI_BACKGROUND_HEX)
-
-def colors_are_similar(rgb1, rgb2, tolerance):
-    return all(abs(c1 - c2) <= tolerance for c1, c2 in zip(rgb1, rgb2))
-
-def capture_hover_popup(hovered_element_top_left, element_type, hovered_element_width, hovered_element_height):
-    if element_type in ["formation", "order"]:
-        bottom_right_offset_x = 1
-        bottom_right_offset_y = 1
-    elif element_type == "trait":
-        bottom_right_offset_x = ... # Your trait offset
-        bottom_right_offset_y = ... # Your trait offset
-    else:
-        print(f"Unknown element type: {element_type}")
-        return None
-
-    predicted_bottom_right_x = hovered_element_top_left[0] + hovered_element_width + bottom_right_offset_x
-    predicted_bottom_right_y = hovered_element_top_left[1] + hovered_element_height + bottom_right_offset_y
-
-    # --- Scan for Top Boundary ---
-    top_boundary_y = predicted_bottom_right_y
-    for y in range(predicted_bottom_right_y, hovered_element_top_left[1] - 5, -1):
-        pixel_color = autoit.pixel_get_color(predicted_bottom_right_x - 10, y) # Sample inside
-        r = (pixel_color >> 16) & 0xFF
-        g = (pixel_color >> 8) & 0xFF
-        b = pixel_color & 0xFF
-        current_rgb = (r, g, b)
-        if not colors_are_similar(current_rgb, POPUP_BACKGROUND_RGB, COLOR_TOLERANCE):
-            top_boundary_y = y + 1
-            break
-        if predicted_bottom_right_y - y > 200: # Safety break
-            break
-
-    # --- Scan for Left Boundary ---
-    left_boundary_x = predicted_bottom_right_x
-    for x in range(predicted_bottom_right_x, hovered_element_top_left[0] - 5, -1):
-        pixel_color = autoit.pixel_get_color(x, top_boundary_y + 10) # Sample inside
-        r = (pixel_color >> 16) & 0xFF
-        g = (pixel_color >> 8) & 0xFF
-        b = pixel_color & 0xFF
-        current_rgb = (r, g, b)
-        if not colors_are_similar(current_rgb, POPUP_BACKGROUND_RGB, COLOR_TOLERANCE):
-            left_boundary_x = x + 1
-            break
-        if predicted_bottom_right_x - x > 300: # Safety break
-            break
-
-    popup_region = (left_boundary_x, top_boundary_y, predicted_bottom_right_x - left_boundary_x + 1, predicted_bottom_right_y - top_boundary_y + 1)
-    filename = f"hover_popup_{element_type}.png"
-    pyautogui.screenshot(filename, region=popup_region)
-    print(f"Captured {element_type} pop-up at {popup_region} to {filename}")
-    return filename
+def colors_are_similar(rgb1, rgb2, color_tolerance):
+    return all(abs(c1 - c2) <= color_tolerance for c1, c2 in zip(rgb1, rgb2))
 
 # --------------------------------------------- First Capture ------------------------------------------------
 
@@ -117,7 +124,12 @@ def capture_on_hotkey():
 
 # --- Navigate to the next tab ---
 
-    autoit.mouse_click("left", DETAILS_TAB_COORDINATES[0], DETAILS_TAB_COORDINATES[1])
+    hold_duration = 0.05  
+
+    autoit.mouse_move(DETAILS_TAB_COORDINATES[0], DETAILS_TAB_COORDINATES[1])
+    autoit.mouse_down("left")
+    time.sleep(hold_duration)
+    autoit.mouse_up("left")
     time.sleep(0.2)  
 
 # --------------------------------------------- Second Capture ---------------------------------------------
@@ -174,16 +186,16 @@ def capture_on_hotkey():
             center_x = region[0] + region[2] // 2
             center_y = region[1] + region[3] // 2
             autoit.mouse_move(center_x, center_y)
-            time.sleep(0.5) # Give time for the pop-up to appear
-            # Add width (region[2]) and height (region[3]) here
-            popup_filename = capture_hover_popup((region[0], region[1]), "formation", region[2], region[3])
-            print(f"Captured formation pop-up: {popup_filename}")
-            autoit.mouse_move(10, 10) # Move mouse away to clear pop-up (optional)
             time.sleep(0.2)
+
+            button_region = (region[0], region[1], region[2], region[3])
+            popup_filename = capture_hover_popup(button_region, output_path=f"formations_popup_{i+1}.png")
+            print(f"Captured formation pop-up: {popup_filename}")
 
         else:
             print(f"No more formations, moving on...")
             break
+        
     print("Captured formations:", captured_formations)
 
     captured_orders = []
@@ -198,12 +210,11 @@ def capture_on_hotkey():
             center_x = region[0] + region[2] // 2
             center_y = region[1] + region[3] // 2
             autoit.mouse_move(center_x, center_y)
-            time.sleep(0.5) # Give time for the pop-up to appear
-            # Add width (region[2]) and height (region[3]) here
-            popup_filename = capture_hover_popup((region[0], region[1]), "order", region[2], region[3])
-            print(f"Captured order pop-up: {popup_filename}")
-            autoit.mouse_move(10, 10) # Move mouse away to clear pop-up (optional)
             time.sleep(0.2)
+            
+            button_region = (region[0], region[1], region[2], region[3])
+            popup_filename = capture_hover_popup(button_region, output_path=f"order_popup_{i+1}.png")
+            print(f"Captured order pop-up: {popup_filename}")
 
         else:
             print(f"No more orders, moving on...")
@@ -214,21 +225,20 @@ def capture_on_hotkey():
     captured_traits = []
     for i, region in enumerate(UNIT_TRAIT_POTENTIAL_REGIONS):
         if is_trait_present(region, UNIT_TRAIT_TARGET_COLORS_RGB, UNIT_TRAIT_COLOR_TOLERANCE):
-            filename = f"unit_trait_{i+1}.png"
+            filename = f"trait_{i+1}.png"
             pyautogui.screenshot(filename, region=region)
-            print(f"Captured unit trait {i+1} at {region} to {filename}")
+            print(f"Captured trait {i+1} at {region} to {filename}")
             captured_traits.append(filename)
 
             # --- Capture Hover Pop-up for Trait ---
             center_x = region[0] + region[2] // 2
             center_y = region[1] + region[3] // 2
             autoit.mouse_move(center_x, center_y)
-            time.sleep(0.5) # Give time for the pop-up to appear
-            # Add width (region[2]) and height (region[3]) here
-            popup_filename = capture_hover_popup((region[0], region[1]), "trait", region[2], region[3])
-            print(f"Captured trait pop-up: {popup_filename}")
-            autoit.mouse_move(10, 10) # Move mouse away to clear pop-up (optional)
             time.sleep(0.2)
+
+            trait_region = (region[0], region[1], region[2], region[3])
+            popup_filename = capture_hover_popup(trait_region, output_path=f"trait_popup_{i+1}.png")
+            print(f"Captured trait pop-up: {popup_filename}")
 
         else:
             print(f"Unit trait {i+1} not present.")
