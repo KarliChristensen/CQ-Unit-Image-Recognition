@@ -1,7 +1,5 @@
 import keyboard
 import pyautogui
-from PIL import ImageColor
-import os
 import time
 import autoit
 
@@ -26,18 +24,12 @@ TRAIT_OFFSET_Y = 20  # Replace with your determined consistent y-offset for trai
 
 def capture_hover_popup(button_region, output_path="dynamic_popup.png", yellow_colors=None, title_color_hex="#9D9D9D", yellow_text_offset_up=23, yellow_text_offset_left=405):
     try:
-        button_left, button_top, button_width, button_height = button_region
+        button_left, button_top = button_region
         title_color_rgb = hex_to_rgb(title_color_hex)
 
         if yellow_colors is None:
             yellow_colors_hex = ["#A69879", "#AA9B7C", "#95896D"]
             yellow_colors = [hex_to_rgb(hex_code) for hex_code in yellow_colors_hex]
-
-        def is_yellow(rgb):
-            for yellow in yellow_colors:
-                if colors_are_similar(rgb, yellow, color_tolerance=10): # Adjust tolerance as needed
-                    return True
-            return False
 
         # Calculate potential start of the last yellow text line
         yellow_text_x = button_left - yellow_text_offset_left
@@ -85,13 +77,11 @@ def hex_to_rgb(hex_color):
 def colors_are_similar(rgb1, rgb2, color_tolerance):
     return all(abs(c1 - c2) <= color_tolerance for c1, c2 in zip(rgb1, rgb2))
 
+
 # --------------------------------------------- First Capture ------------------------------------------------
 
 def capture_on_hotkey():
     print("Hotkey detected! Capturing multiple regions...")
-
-    screenshot = pyautogui.screenshot()
-    screenshot.save("background_screenshot.png")
 
     unit_name_region = (760, 140, 465, 60)
     screenshot_unit_name = pyautogui.screenshot(region=unit_name_region)
@@ -133,9 +123,6 @@ def capture_on_hotkey():
     time.sleep(0.2)  
 
 # --------------------------------------------- Second Capture ---------------------------------------------
-
-    screenshot = pyautogui.screenshot()
-    screenshot.save("attributes_background_screenshot.png")
 
 # --------------------------------------------- Configuration ------------------------------------------------
 
@@ -219,6 +206,7 @@ def capture_on_hotkey():
         else:
             print(f"No more orders, moving on...")
             break
+        
     print("Captured orders:", captured_orders)
 
 
