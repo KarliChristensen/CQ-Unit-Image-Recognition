@@ -8,8 +8,6 @@ import autoit
 HOTKEY_START = 'ctrl+e'
 HOTKEY_END = 'ctrl+s'
 DETAILS_TAB_COORDINATES = (2582, 1353)
-VETERANCY_TAB_COORDINATES = (2582, 1353)
-MASTERY_TAB_COORDINATES = (2582, 1353)
 
 def hex_to_rgb(hex_color):
     hex_color = hex_color.lstrip("#")
@@ -299,6 +297,7 @@ def capture_on_hotkey():
             print(f"Unit trait {i+1} not present.")
             break
     print("Captured unit traits:", captured_traits)
+    move_to_veterancy_tab()
 
 
 # --- Basic Attributes ---
@@ -402,9 +401,11 @@ def capture_on_hotkey():
 
 # --- Formations ---
 
-
-
-# --- Unit Traits ---
+def move_to_veterancy_tab():
+    autoit.mouse_move(1707, 323)
+    autoit.mouse_down("left")
+    time.sleep(0.05)
+    autoit.mouse_up("left")
 
 def is_trait_present(region, target_colors_rgb, tolerance):
     x, y, w, h = region
@@ -426,7 +427,7 @@ def is_trait_present(region, target_colors_rgb, tolerance):
     return False
 
 def _find_white_text_top(start_x_center, start_y, white_colors, color_tolerance=20, search_distance_lines=10, line_spacing=30, horizontal_check_offset=5):
-    """Scans upwards line by line (with a fixed spacing) and stops when a line without white text is encountered."""
+
     screen_width, screen_height = pyautogui.size()
     top_y = start_y # Initialize top_y with the starting y (bottom line)
     previous_top_y = start_y # Keep track of the last y where white text was found
@@ -509,9 +510,6 @@ def capture_trait_popup(button_region, output_path="trait_popup.png"):
     except Exception as e:
         print(f"Error capturing trait pop-up (dynamic top - padded): {e}")
         return None
-
-# --- Unit Orders ---+
-
 
 if __name__ == "__main__":
     keyboard.add_hotkey(HOTKEY_START, capture_on_hotkey)
