@@ -11,6 +11,12 @@ DETAILS_TAB_COORDINATES = (2582, 1353)
 VETERANCY_TAB_COORDINATES = (2582, 1353)
 MASTERY_TAB_COORDINATES = (2582, 1353)
 
+def hex_to_rgb(hex_color):
+    hex_color = hex_color.lstrip("#")
+    return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+
+def colors_are_similar(rgb1, rgb2, color_tolerance):
+    return all(abs(c1 - c2) <= color_tolerance for c1, c2 in zip(rgb1, rgb2))
 
 def capture_hover_popup(button_region, output_path="dynamic_popup.png", yellow_colors=None, title_color_hex="#9D9D9D", yellow_text_offset_up=25, yellow_text_offset_left=411):
     try:
@@ -121,10 +127,10 @@ def capture_trait_popup(button_region, output_path="trait_popup.png", title_colo
 
         if title_top != -1:
             # Define the pop-up region with adjustments for the offset
-            popup_left = search_x - 10
-            popup_top = title_top - 10
-            popup_right = button_left + 350 # Estimate width
-            popup_bottom = button_top + 30 # Estimate height
+            popup_left = 1785
+            popup_top = title_top + 10
+            popup_right = 2143
+            popup_bottom = button_top - 36 # Estimate height
 
             final_popup_left = max(0, int(popup_left))
             final_popup_top = max(0, int(popup_top))
@@ -149,14 +155,6 @@ def capture_trait_popup(button_region, output_path="trait_popup.png", title_colo
     except Exception as e:
         print(f"Error capturing trait pop-up: {e}")
         return None
-
-
-def hex_to_rgb(hex_color):
-    hex_color = hex_color.lstrip("#")
-    return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
-
-def colors_are_similar(rgb1, rgb2, color_tolerance):
-    return all(abs(c1 - c2) <= color_tolerance for c1, c2 in zip(rgb1, rgb2))
 
 
 # --------------------------------------------- First Capture ---------------------------------------------
@@ -283,7 +281,7 @@ def capture_on_hotkey():
             center_y = region[1] + region[3] // 2
             autoit.mouse_move(center_x, center_y)
             time.sleep(0.2)
-            
+
             button_region = (region[0], region[1], region[2], region[3])
             popup_filename = capture_hover_popup(button_region, output_path=f"order_popup_{i+1}.png")
             print(f"Captured order pop-up: {popup_filename}")
@@ -291,9 +289,8 @@ def capture_on_hotkey():
         else:
             print(f"No more orders, moving on...")
             break
-        
-    print("Captured orders:", captured_orders)
 
+    print("Captured orders:", captured_orders)
 
     captured_traits = []
     first_trait_attempt = True  # Flag to handle the first trait differently
@@ -303,6 +300,8 @@ def capture_on_hotkey():
             center_x = region[0] + region[2] // 2
             center_y = region[1] + region[3] // 2
             autoit.mouse_move(center_x, center_y)
+            autoit.mouse_click("left") # Click to dismiss blocking popup
+            time.sleep(0.3)
             first_trait_attempt = False # Disable the flag for subsequent traits
 
             filename = f"trait_{i+1}.png"
@@ -315,7 +314,7 @@ def capture_on_hotkey():
             time.sleep(0.2)
 
             trait_region = (region[0], region[1], region[2], region[3])
-            popup_filename = capture_hover_popup(trait_region, output_path=f"trait_popup_{i+1}.png")
+            popup_filename = capture_trait_popup(trait_region, output_path=f"trait_popup_{i+1}.png")
             print(f"Captured trait pop-up: {popup_filename}")
 
         elif is_trait_present(region, UNIT_TRAIT_TARGET_COLORS_RGB, UNIT_TRAIT_COLOR_TOLERANCE):
@@ -331,13 +330,14 @@ def capture_on_hotkey():
             time.sleep(0.2)
 
             trait_region = (region[0], region[1], region[2], region[3])
-            popup_filename = capture_hover_popup(trait_region, output_path=f"trait_popup_{i+1}.png")
+            popup_filename = capture_trait_popup(trait_region, output_path=f"trait_popup_{i+1}.png")
             print(f"Captured trait pop-up: {popup_filename}")
 
         else:
             print(f"Unit trait {i+1} not present.")
             break
     print("Captured unit traits:", captured_traits)
+
 
 # --- Basic Attributes ---
 
