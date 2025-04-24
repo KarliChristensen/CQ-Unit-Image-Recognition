@@ -18,6 +18,21 @@ def hex_to_rgb(hex_color):
 def colors_are_similar(rgb1, rgb2, color_tolerance):
     return all(abs(c1 - c2) <= color_tolerance for c1, c2 in zip(rgb1, rgb2))
 
+def is_button_present(region, grey_rgb, tolerance):
+    x, y, w, h = region
+    for offset_y in range(h - 4, h):
+        sample_points = [x + w // 4, x + w // 2, x + 3 * w // 4]
+        for sample_x in sample_points:
+            pixel_color = autoit.pixel_get_color(sample_x, y + offset_y)
+            r = (pixel_color >> 16) & 0xFF
+            g = (pixel_color >> 8) & 0xFF
+            b = pixel_color & 0xFF
+            if abs(r - grey_rgb[0]) < tolerance and \
+               abs(g - grey_rgb[1]) < tolerance and \
+               abs(b - grey_rgb[2]) < tolerance:
+                return True
+    return False
+
 def capture_hover_popup(button_region, output_path="dynamic_popup.png", yellow_colors=None, title_color_hex="#9D9D9D", yellow_text_offset_up=25, yellow_text_offset_left=411):
     try:
         button_left, button_top, button_width, button_height = button_region
@@ -47,8 +62,8 @@ def capture_hover_popup(button_region, output_path="dynamic_popup.png", yellow_c
         found_yellow = False
         yellow_text_x = -1
         yellow_text_y_start = -1
-        for x_offset in range(-5, 6):
-            for y_offset in range(-5, 6):
+        for x_offset in range(-2, 2):
+            for y_offset in range(-2, 2):
                 sample_x = expected_yellow_text_x + x_offset
                 sample_y = expected_yellow_text_y_start + y_offset
                 if 0 <= sample_x < pyautogui.size()[0] and 0 <= sample_y < pyautogui.size()[1]:
@@ -103,59 +118,6 @@ def capture_hover_popup(button_region, output_path="dynamic_popup.png", yellow_c
     except Exception as e:
         print(f"Error capturing dynamic hover pop-up (text-based - final - area scan): {e}")
         return None
-
-def capture_trait_popup(button_region, output_path="trait_popup.png", title_color_hex="#CFCFCF", popup_offset_left=-356, popup_offset_up=-90, title_color_tolerance=15):
-    try:
-        button_left, button_top, button_width, button_height = button_region
-        title_color_rgb = hex_to_rgb(title_color_hex)
-
-        center_x = button_left + button_width // 2
-        center_y = button_top + button_height // 2
-        pyautogui.moveTo(center_x, center_y)
-        time.sleep(0.05) # Give time for the pop-up to appear
-
-        # Start title search from a position based on the button and offset
-        search_x = button_left + popup_offset_left + 10 # Adjust starting X
-        search_start_y = button_top + popup_offset_up + 10 # Adjust starting Y
-        title_top = -1
-        for y in range(search_start_y, max(0, search_start_y - 150), -1): # Scan upwards
-            if 0 <= search_x < pyautogui.size()[0] and 0 <= y < pyautogui.size()[1]:
-                pixel_color = pyautogui.pixel(int(search_x), int(y))
-                if colors_are_similar(pixel_color, title_color_rgb, title_color_tolerance):
-                    title_top = y
-                    break
-
-        if title_top != -1:
-            # Define the pop-up region with adjustments for the offset
-            popup_left = 1785
-            popup_top = title_top + 10
-            popup_right = 2143
-            popup_bottom = button_top - 36 # Estimate height
-
-            final_popup_left = max(0, int(popup_left))
-            final_popup_top = max(0, int(popup_top))
-            final_popup_right = min(pyautogui.size()[0], int(popup_right))
-            final_popup_bottom = min(pyautogui.size()[1], int(popup_bottom))
-
-            final_popup_width = final_popup_right - final_popup_left
-            final_popup_height = final_popup_bottom - final_popup_top
-
-            if final_popup_width > 0 and final_popup_height > 0:
-                screenshot = pyautogui.screenshot(region=(final_popup_left, final_popup_top, final_popup_width, final_popup_height))
-                screenshot.save(output_path)
-                print(f"Successfully captured trait pop-up to: {output_path}")
-                return output_path
-            else:
-                print("Could not determine the trait pop-up boundaries based on title.")
-                return None
-        else:
-            print("Could not find the trait title text.")
-            return None
-
-    except Exception as e:
-        print(f"Error capturing trait pop-up: {e}")
-        return None
-
 
 # --------------------------------------------- First Capture ---------------------------------------------
 
@@ -444,10 +406,6 @@ def capture_on_hotkey():
 
 # --- Unit Traits ---
 
-
-
-# --- Unit Orders ---+
-
 def is_trait_present(region, target_colors_rgb, tolerance):
     x, y, w, h = region
     bracket_offset_x = 48
@@ -467,20 +425,93 @@ def is_trait_present(region, target_colors_rgb, tolerance):
             return True
     return False
 
-def is_button_present(region, grey_rgb, tolerance):
-    x, y, w, h = region
-    for offset_y in range(h - 4, h):
-        sample_points = [x + w // 4, x + w // 2, x + 3 * w // 4]
-        for sample_x in sample_points:
-            pixel_color = autoit.pixel_get_color(sample_x, y + offset_y)
-            r = (pixel_color >> 16) & 0xFF
-            g = (pixel_color >> 8) & 0xFF
-            b = pixel_color & 0xFF
-            if abs(r - grey_rgb[0]) < tolerance and \
-               abs(g - grey_rgb[1]) < tolerance and \
-               abs(b - grey_rgb[2]) < tolerance:
-                return True
-    return False
+def _find_white_text_top(start_x_center, start_y, white_colors, color_tolerance=20, search_distance_lines=10, line_spacing=30, horizontal_check_offset=5):
+    """Scans upwards line by line (with a fixed spacing) and stops when a line without white text is encountered."""
+    screen_width, screen_height = pyautogui.size()
+    top_y = start_y # Initialize top_y with the starting y (bottom line)
+    previous_top_y = start_y # Keep track of the last y where white text was found
+
+    for i in range(1, search_distance_lines + 1):
+        check_y = start_y - i * line_spacing
+        if check_y < 0:
+            break
+        found_white_in_line_bottom = False
+        for x_offset in range(-horizontal_check_offset, horizontal_check_offset + 1):
+            check_x = start_x_center + x_offset
+            if 0 <= check_x < screen_width and 0 <= check_y < screen_height:
+                pixel_color = pyautogui.pixel(int(check_x), int(check_y))
+                for white_color in white_colors:
+                    if colors_are_similar(pixel_color, white_color, color_tolerance):
+                        top_y = check_y
+                        found_white_in_line_bottom = True
+                        break
+                if found_white_in_line_bottom:
+                    break # Found white in this line, move to the next line up
+
+        if not found_white_in_line_bottom:
+            return previous_top_y # No white text found on this line, return the previous top_y
+        else:
+            previous_top_y = top_y # Update the previous top_y if white text was found
+
+    return top_y if top_y != start_y else -1 # Return the topmost y found, or -1 if none found above the start
+
+def capture_trait_popup(button_region, output_path="trait_popup.png"):
+    try:
+        button_left, button_top, button_width, button_height = button_region
+        screen_width, screen_height = pyautogui.size()
+        white_colors_hex = ["#8C8C8C", "#6B6B6C", "#CDCDCD", "#454546"]
+        white_colors_rgb = [hex_to_rgb(hex_code) for hex_code in white_colors_hex]
+        bottom_line_offset_fixed = 58
+        text_block_x_offset_fixed = 1795 + 10 # Fixed left x + some padding (approximate start)
+        line_spacing_fixed = 30
+        popup_left_fixed = 1785
+        popup_right_fixed = 2143
+        popup_bottom_est = button_top - 36
+        search_distance_lines_fixed = 10
+        horizontal_check_offset_fixed = 5
+        top_padding_fixed = 25 # Padding to add to the top
+
+        center_x = button_left + button_width // 2
+        center_y = button_top + button_height // 2
+        pyautogui.moveTo(center_x, center_y)
+        time.sleep(0.05)
+
+        # Calculate the starting y-position for the bottom line search
+        start_search_y = max(0, int(popup_bottom_est - bottom_line_offset_fixed))
+
+        # Approximate the starting x-coordinate of the text block
+        start_x_center_approx = int(text_block_x_offset_fixed + 10) # Add a bit to get closer to text
+
+        # Scan upwards line by line to find the top of the white text block
+        popup_top = _find_white_text_top(start_x_center_approx, start_search_y, white_colors_rgb, color_tolerance=20, search_distance_lines=search_distance_lines_fixed, line_spacing=line_spacing_fixed, horizontal_check_offset=horizontal_check_offset_fixed)
+
+        if popup_top != -1:
+            final_popup_left = popup_left_fixed
+            final_popup_top = max(0, int(popup_top - top_padding_fixed)) # Apply the top padding
+            final_popup_right = popup_right_fixed
+            final_popup_bottom = min(screen_height, int(popup_bottom_est))
+
+            final_popup_width = final_popup_right - final_popup_left
+            final_popup_height = final_popup_bottom - final_popup_top
+
+            if final_popup_width > 0 and final_popup_height > 0:
+                screenshot = pyautogui.screenshot(region=(final_popup_left, final_popup_top, final_popup_width, final_popup_height))
+                screenshot.save(output_path)
+                print(f"Successfully captured trait pop-up to: {output_path} (dynamic top - padded)")
+                return output_path
+            else:
+                print("Could not determine the trait pop-up boundaries (dynamic top - padded).")
+                return None
+        else:
+            print("Could not find the top of the white text block (padded).")
+            return None
+
+    except Exception as e:
+        print(f"Error capturing trait pop-up (dynamic top - padded): {e}")
+        return None
+
+# --- Unit Orders ---+
+
 
 if __name__ == "__main__":
     keyboard.add_hotkey(HOTKEY_START, capture_on_hotkey)
