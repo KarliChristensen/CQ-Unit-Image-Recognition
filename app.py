@@ -3,7 +3,7 @@ import pyautogui
 import time
 import autoit
 
-# --------------------------------------------- Configuration ------------------------------------------------
+# --------------------------------------------- Configuration ---------------------------------------------
 
 HOTKEY_START = 'ctrl+e'
 HOTKEY_END = 'ctrl+s'
@@ -11,44 +11,120 @@ DETAILS_TAB_COORDINATES = (2582, 1353)
 VETERANCY_TAB_COORDINATES = (2582, 1353)
 MASTERY_TAB_COORDINATES = (2582, 1353)
 
-POPUP_BACKGROUND_HEX = "#1E1E1E"
-UI_BACKGROUND_HEX = "#171C20"
-COLOR_TOLERANCE = 10
 
-""" capture_hover_popup """
-
-FORMATION_ORDER_OFFSET_X = 1
-FORMATION_ORDER_OFFSET_Y = 1
-TRAIT_OFFSET_X = 60  # Replace with your determined consistent x-offset for traits
-TRAIT_OFFSET_Y = 20  # Replace with your determined consistent y-offset for traits
-
-def capture_hover_popup(button_region, output_path="dynamic_popup.png", yellow_colors=None, title_color_hex="#9D9D9D", yellow_text_offset_up=23, yellow_text_offset_left=405):
+def capture_hover_popup(button_region, output_path="dynamic_popup.png", yellow_colors=None, title_color_hex="#9D9D9D", yellow_text_offset_up=25, yellow_text_offset_left=411):
     try:
-        button_left, button_top = button_region
+        button_left, button_top, button_width, button_height = button_region
         title_color_rgb = hex_to_rgb(title_color_hex)
 
         if yellow_colors is None:
             yellow_colors_hex = ["#A69879", "#AA9B7C", "#95896D"]
             yellow_colors = [hex_to_rgb(hex_code) for hex_code in yellow_colors_hex]
 
-        # Calculate potential start of the last yellow text line
-        yellow_text_x = button_left - yellow_text_offset_left
-        yellow_text_y_start = button_top - yellow_text_offset_up
+        def is_yellow(rgb, yellow_colors_local):
+            color_tolerance = 10
+            for yellow in yellow_colors_local:
+                if colors_are_similar(rgb, yellow, color_tolerance):
+                    return True
+            return False
 
-        # Scan upwards for the title color
-        title_top = -1
-        for y in range(yellow_text_y_start - 5, max(0, yellow_text_y_start - 100), -1): # Scan upwards
-            pixel_color = pyautogui.pixel(int(yellow_text_x), int(y))
-            if colors_are_similar(pixel_color, title_color_rgb, color_tolerance=5): # Adjust tolerance as needed
-                title_top = y
+        center_x = button_left + button_width // 2
+        center_y = button_top + button_height // 2
+        pyautogui.moveTo(center_x, center_y)
+        time.sleep(0.05) # Give time for the pop-up to appear (adjust if needed)
+
+        # Calculate potential start of the last yellow text line
+        expected_yellow_text_x = button_left - yellow_text_offset_left
+        expected_yellow_text_y_start = button_top - yellow_text_offset_up
+
+        # Search for the yellow text in a small area
+        found_yellow = False
+        yellow_text_x = -1
+        yellow_text_y_start = -1
+        for x_offset in range(-5, 6):
+            for y_offset in range(-5, 6):
+                sample_x = expected_yellow_text_x + x_offset
+                sample_y = expected_yellow_text_y_start + y_offset
+                if 0 <= sample_x < pyautogui.size()[0] and 0 <= sample_y < pyautogui.size()[1]:
+                    pixel_color = pyautogui.pixel(int(sample_x), int(sample_y))
+                    if is_yellow(pixel_color, yellow_colors):
+                        yellow_text_x = sample_x
+                        yellow_text_y_start = sample_y
+                        found_yellow = True
+                        break
+            if found_yellow:
                 break
 
+        if found_yellow:
+            # Scan upwards for the title color from the found yellow text position
+            title_top = -1
+            for y in range(yellow_text_y_start - 5, max(0, yellow_text_y_start - 300), -1): # Scan upwards
+                pixel_color = pyautogui.pixel(int(yellow_text_x), int(y))
+                if colors_are_similar(pixel_color, title_color_rgb, color_tolerance=5): # Adjust tolerance as needed
+                    title_top = y
+                    break
+
+            if title_top != -1:
+                # Define the pop-up region with final adjustments
+                popup_left = yellow_text_x - 5 - 10 # Add 10 pixels to the left
+                popup_top = title_top - 5 - 10 # Add 10 pixels to the top
+                popup_right = button_left # Use the left side of the hovered button as the right
+                popup_bottom = button_top # Use the top of the hovered button as the bottom
+
+                final_popup_left = max(0, int(popup_left))
+                final_popup_top = max(0, int(popup_top))
+                final_popup_right = min(pyautogui.size()[0], int(popup_right))
+                final_popup_bottom = min(pyautogui.size()[1], int(popup_bottom))
+
+                final_popup_width = final_popup_right - final_popup_left
+                final_popup_height = final_popup_bottom - final_popup_top
+
+                if final_popup_width > 0 and final_popup_height > 0:
+                    screenshot = pyautogui.screenshot(region=(final_popup_left, final_popup_top, final_popup_width, final_popup_height))
+                    screenshot.save(output_path)
+                    print(f"Successfully captured dynamic hover pop-up to: {output_path} (text-based - final - area scan)")
+                    return output_path
+                else:
+                    print("Could not determine the pop-up boundaries based on text (final - area scan).")
+                    return None
+            else:
+                print("Could not find the title text to define pop-up boundaries (final - area scan).")
+                return None
+        else:
+            print("Could not find the yellow text anchor.")
+            return None
+
+    except Exception as e:
+        print(f"Error capturing dynamic hover pop-up (text-based - final - area scan): {e}")
+        return None
+
+def capture_trait_popup(button_region, output_path="trait_popup.png", title_color_hex="#CFCFCF", popup_offset_left=-356, popup_offset_up=-90, title_color_tolerance=15):
+    try:
+        button_left, button_top, button_width, button_height = button_region
+        title_color_rgb = hex_to_rgb(title_color_hex)
+
+        center_x = button_left + button_width // 2
+        center_y = button_top + button_height // 2
+        pyautogui.moveTo(center_x, center_y)
+        time.sleep(0.05) # Give time for the pop-up to appear
+
+        # Start title search from a position based on the button and offset
+        search_x = button_left + popup_offset_left + 10 # Adjust starting X
+        search_start_y = button_top + popup_offset_up + 10 # Adjust starting Y
+        title_top = -1
+        for y in range(search_start_y, max(0, search_start_y - 150), -1): # Scan upwards
+            if 0 <= search_x < pyautogui.size()[0] and 0 <= y < pyautogui.size()[1]:
+                pixel_color = pyautogui.pixel(int(search_x), int(y))
+                if colors_are_similar(pixel_color, title_color_rgb, title_color_tolerance):
+                    title_top = y
+                    break
+
         if title_top != -1:
-            # Define the pop-up region with final adjustments
-            popup_left = yellow_text_x - 5 - 10 # Add 10 pixels to the left
-            popup_top = title_top - 5 - 10 # Add 10 pixels to the top
-            popup_right = button_left # Use the left side of the hovered button as the right
-            popup_bottom = button_top # Use the top of the hovered button as the bottom
+            # Define the pop-up region with adjustments for the offset
+            popup_left = search_x - 10
+            popup_top = title_top - 10
+            popup_right = button_left + 350 # Estimate width
+            popup_bottom = button_top + 30 # Estimate height
 
             final_popup_left = max(0, int(popup_left))
             final_popup_top = max(0, int(popup_top))
@@ -61,14 +137,19 @@ def capture_hover_popup(button_region, output_path="dynamic_popup.png", yellow_c
             if final_popup_width > 0 and final_popup_height > 0:
                 screenshot = pyautogui.screenshot(region=(final_popup_left, final_popup_top, final_popup_width, final_popup_height))
                 screenshot.save(output_path)
-                print(f"Successfully captured dynamic hover pop-up to: {output_path} (text-based - final)")
+                print(f"Successfully captured trait pop-up to: {output_path}")
+                return output_path
             else:
-                print("Could not determine the pop-up boundaries based on text (final).")
+                print("Could not determine the trait pop-up boundaries based on title.")
+                return None
         else:
-            print("Could not find the title text to define pop-up boundaries (final).")
+            print("Could not find the trait title text.")
+            return None
 
     except Exception as e:
-        print(f"Error capturing dynamic hover pop-up (text-based - final): {e}")
+        print(f"Error capturing trait pop-up: {e}")
+        return None
+
 
 def hex_to_rgb(hex_color):
     hex_color = hex_color.lstrip("#")
@@ -78,10 +159,13 @@ def colors_are_similar(rgb1, rgb2, color_tolerance):
     return all(abs(c1 - c2) <= color_tolerance for c1, c2 in zip(rgb1, rgb2))
 
 
-# --------------------------------------------- First Capture ------------------------------------------------
+# --------------------------------------------- First Capture ---------------------------------------------
 
 def capture_on_hotkey():
     print("Hotkey detected! Capturing multiple regions...")
+
+    screenshot = pyautogui.screenshot()
+    screenshot.save("full_screenshot.png")
 
     unit_name_region = (760, 140, 465, 60)
     screenshot_unit_name = pyautogui.screenshot(region=unit_name_region)
@@ -124,7 +208,7 @@ def capture_on_hotkey():
 
 # --------------------------------------------- Second Capture ---------------------------------------------
 
-# --------------------------------------------- Configuration ------------------------------------------------
+# --------------------------------------------- Configuration ---------------------------------------------
 
     BOX_GREY_HEX = "#8C8C8C"
     BOX_GREY_RGB = tuple(int(BOX_GREY_HEX[i:i+2], 16) for i in (1, 3, 5))
@@ -150,14 +234,15 @@ def capture_on_hotkey():
         (2163, 567, 325, 25),
         (2163, 600, 325, 25),
         (2163, 633, 325, 25),
-
     ]
+    
     UNIT_TRAIT_TARGET_COLORS_RGB = [
         (133, 183, 85),  
-        (174, 53, 26), 
         (159, 160, 160),
+        (174, 53, 26), 
+        (198, 57, 25),
     ]
-    UNIT_TRAIT_COLOR_TOLERANCE = 10
+    UNIT_TRAIT_COLOR_TOLERANCE = 20
 
     # --- !!!!Boxes are measured on the inside of the intended target ---
 
@@ -211,8 +296,29 @@ def capture_on_hotkey():
 
 
     captured_traits = []
+    first_trait_attempt = True  # Flag to handle the first trait differently
     for i, region in enumerate(UNIT_TRAIT_POTENTIAL_REGIONS):
-        if is_trait_present(region, UNIT_TRAIT_TARGET_COLORS_RGB, UNIT_TRAIT_COLOR_TOLERANCE):
+        if first_trait_attempt:
+            print("Circumventing color check for the first trait...")
+            center_x = region[0] + region[2] // 2
+            center_y = region[1] + region[3] // 2
+            autoit.mouse_move(center_x, center_y)
+            first_trait_attempt = False # Disable the flag for subsequent traits
+
+            filename = f"trait_{i+1}.png"
+            pyautogui.screenshot(filename, region=region)
+            print(f"Captured trait {i+1} (circumvent) at {region} to {filename}")
+            captured_traits.append(filename)
+
+            # --- Capture Hover Pop-up for Trait ---
+            autoit.mouse_move(center_x, center_y)
+            time.sleep(0.2)
+
+            trait_region = (region[0], region[1], region[2], region[3])
+            popup_filename = capture_hover_popup(trait_region, output_path=f"trait_popup_{i+1}.png")
+            print(f"Captured trait pop-up: {popup_filename}")
+
+        elif is_trait_present(region, UNIT_TRAIT_TARGET_COLORS_RGB, UNIT_TRAIT_COLOR_TOLERANCE):
             filename = f"trait_{i+1}.png"
             pyautogui.screenshot(filename, region=region)
             print(f"Captured trait {i+1} at {region} to {filename}")
@@ -234,6 +340,9 @@ def capture_on_hotkey():
     print("Captured unit traits:", captured_traits)
 
 # --- Basic Attributes ---
+
+    screenshot_unit_health = pyautogui.screenshot()
+    screenshot_unit_health.save("back.png")
 
     unit_health_region = (1400, 450, 100, 30)
     screenshot_unit_health = pyautogui.screenshot(region=unit_health_region)
