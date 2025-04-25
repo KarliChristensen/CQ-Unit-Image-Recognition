@@ -1,13 +1,66 @@
-import keyboard
 import pyautogui
-import time
+import ocr_utils
+import main_attributes  
+import keyboard
 import autoit
+import time
+import json
+import sys
+import os
 
-# --------------------------------------------- Configuration ---------------------------------------------
+
+# --------------------------------------------- Configuration ---------------------------------------------+
 
 HOTKEY_START = 'ctrl+e'
-HOTKEY_END = 'ctrl+s'
+HOTKEY_INTERRUPT_RESET = 'ctrl+s'
+HOTKEY_TERMINATE = 'ctrl+escape'
+
 DETAILS_TAB_COORDINATES = (2582, 1353)
+
+BOX_GREY_HEX = "#8C8C8C"
+BOX_GREY_RGB = tuple(int(BOX_GREY_HEX[i:i+2], 16) for i in (1, 3, 5))
+BOX_COLOR_TOLERANCE = 10       
+    
+FORMATION_POTENTIAL_REGIONS = [  
+        (1730, 777, 63, 63),  
+        (1815, 777, 63, 63),  
+        (1901, 777, 63, 63),  
+        (1987, 777, 63, 63),
+    ]
+
+ORDERS_POTENTIAL_REGIONS = [  
+        (2157, 775, 65, 65), 
+        (2242, 775, 65, 65), 
+        (2327, 775, 65, 65),
+        (2412, 775, 65, 65),
+    ]
+
+UNIT_TRAIT_POTENTIAL_REGIONS = [
+        (2163, 501, 325, 25),  
+        (2163, 534, 325, 25),
+        (2163, 567, 325, 25),
+        (2163, 600, 325, 25),
+        (2163, 633, 325, 25),
+    ]
+    
+UNIT_TRAIT_TARGET_COLORS_RGB = [
+        (133, 183, 85),  
+        (159, 160, 160),
+        (174, 53, 26), 
+        (198, 57, 25),
+    ]
+
+script_running = True
+
+OUTPUT_JSON_FILES = {
+    "melee infantry": "melee_infantry_units.json",
+    "ranged infantry": "ranged_infantry_units.json",
+    "cavalry": "cavalry_units.json"
+}
+
+def stop_script():
+    print("Stop hotkey detected. Exiting script.")
+    sys.exit()
 
 def hex_to_rgb(hex_color):
     hex_color = hex_color.lstrip("#")
@@ -31,6 +84,30 @@ def is_button_present(region, grey_rgb, tolerance):
                 return True
     return False
 
+def append_unit_to_json(unit_data):
+    primary_type = unit_data.get('primary_type')
+    if primary_type in OUTPUT_JSON_FILES:
+        filename = OUTPUT_JSON_FILES[primary_type]
+        try:
+            with open(filename, 'r+') as f:
+                try:
+                    data = json.load(f)
+                    if isinstance(data, list):
+                        data.append(unit_data)
+                        f.seek(0)
+                        json.dump(data, f, indent=4)
+                        f.truncate()
+                    else:
+                        json.dump([unit_data], f, indent=4)
+                except json.JSONDecodeError:
+                    json.dump([unit_data], f, indent=4)
+        except FileNotFoundError:
+            with open(filename, 'w') as f:
+                json.dump([unit_data], f, indent=4)
+        print(f"Unit appended to '{filename}'")
+    else:
+        print(f"Warning: Unknown primary type '{primary_type}'. Unit not saved to a specific category file.")
+
 def capture_hover_popup(button_region, output_path="dynamic_popup.png", yellow_colors=None, title_color_hex="#9D9D9D", yellow_text_offset_up=25, yellow_text_offset_left=411):
     try:
         button_left, button_top, button_width, button_height = button_region
@@ -50,7 +127,7 @@ def capture_hover_popup(button_region, output_path="dynamic_popup.png", yellow_c
         center_x = button_left + button_width // 2
         center_y = button_top + button_height // 2
         pyautogui.moveTo(center_x, center_y)
-        time.sleep(0.05) # Give time for the pop-up to appear (adjust if needed)
+        time.sleep(0.05)
 
         # Calculate potential start of the last yellow text line
         expected_yellow_text_x = button_left - yellow_text_offset_left
@@ -101,16 +178,12 @@ def capture_hover_popup(button_region, output_path="dynamic_popup.png", yellow_c
                 if final_popup_width > 0 and final_popup_height > 0:
                     screenshot = pyautogui.screenshot(region=(final_popup_left, final_popup_top, final_popup_width, final_popup_height))
                     screenshot.save(output_path)
-                    print(f"Successfully captured dynamic hover pop-up to: {output_path} (text-based - final - area scan)")
                     return output_path
                 else:
-                    print("Could not determine the pop-up boundaries based on text (final - area scan).")
                     return None
             else:
-                print("Could not find the title text to define pop-up boundaries (final - area scan).")
                 return None
         else:
-            print("Could not find the yellow text anchor.")
             return None
 
     except Exception as e:
@@ -120,39 +193,66 @@ def capture_hover_popup(button_region, output_path="dynamic_popup.png", yellow_c
 # --------------------------------------------- First Capture ---------------------------------------------
 
 def capture_on_hotkey():
-    print("Hotkey detected! Capturing multiple regions...")
+    global interrupt_capture
+    print("Capturing unit data...")
+    interrupt_capture = False # Reset the flag at the start of each capture
 
-    screenshot = pyautogui.screenshot()
-    screenshot.save("full_screenshot.png")
+    # Strategic check points for interruption
+    if interrupt_capture:
+        return
 
-    unit_name_region = (760, 140, 465, 60)
-    screenshot_unit_name = pyautogui.screenshot(region=unit_name_region)
-    screenshot_unit_name.save("unit_name.png")
+    unit_info = main_attributes.main_attributes_extraction()
 
-    unit_level_region = (760, 190, 320, 40)
-    screenshot_unit_level = pyautogui.screenshot(region=unit_level_region)
-    screenshot_unit_level.save("unit_level.png")
+    if interrupt_capture:
+        return
 
-    type_region = (840, 240, 480, 40)
-    screenshot_type = pyautogui.screenshot(region=type_region)
-    screenshot_type.save("type_region.png")
+    primary_type = unit_info.get('unit_type', {}).get('primary')
 
-    leadership_region = (980, 405, 55, 25)
-    screenshot_leadership = pyautogui.screenshot(region=leadership_region)
-    screenshot_leadership.save("leadership.png")
+    if interrupt_capture:
+        return
 
-    strength_region = (600, 400, 55, 25)
-    screenshot_strength = pyautogui.screenshot(region=strength_region)
-    screenshot_strength.save("strength.png")
-
-    maxLevel_region = (790, 400, 55, 25)
-    screenshot_maxLevel = pyautogui.screenshot(region=maxLevel_region)
-    screenshot_maxLevel.save("maxLevel.png")
-
-    icon_region = (599, 140, 134, 134)
-    screenshot_icon = pyautogui.screenshot(region=icon_region)
-    screenshot_icon.save("icon.png")
-    time.sleep(0.1)  
+    if primary_type and primary_type in OUTPUT_JSON_FILES:
+        output_filename = OUTPUT_JSON_FILES[primary_type]
+        try:
+            with open(output_filename, 'r+') as f:
+                try:
+                    data = json.load(f)
+                    if isinstance(data, list):
+                        found = False
+                        if data:
+                            for i, entry in enumerate(data):
+                                if interrupt_capture:
+                                    print("Capture interrupted during JSON processing.")
+                                    return
+                                if entry.get('unit_name') == unit_info.get('unit_name'):
+                                    print(f"Match found: Overwriting ({entry.get('unit_name')}) using new data'")
+                                    data[i] = unit_info
+                                    found = True
+                                    break
+                                else:
+                                    print(f"No match: Generating new entry for {unit_info.get('unit_name')}")
+                        if not found:
+                            if not interrupt_capture:
+                                data.append(unit_info)
+                        if not interrupt_capture:
+                            f.seek(0)
+                            json.dump(data, f, indent=4)
+                            f.truncate()
+                    else:
+                        if not interrupt_capture:
+                            json.dump([unit_info], f, indent=4)
+                except json.JSONDecodeError:
+                    if not interrupt_capture:
+                        json.dump([unit_info], f, indent=4)
+        except FileNotFoundError:
+            if not interrupt_capture:
+                with open(output_filename, 'w') as f:
+                    json.dump([unit_info], f, indent=4)
+        if not interrupt_capture:
+            print(f"Unit data saved to '{output_filename}' (overwrote if existing).")
+    else:
+        if not interrupt_capture:
+            print(f"Warning: Unknown or missing primary type '{primary_type}'. Unit data not saved.")
 
 # --- Navigate to the next tab ---
 
@@ -166,137 +266,78 @@ def capture_on_hotkey():
 
 # --------------------------------------------- Second Capture ---------------------------------------------
 
-# --------------------------------------------- Configuration ---------------------------------------------
-
-    BOX_GREY_HEX = "#8C8C8C"
-    BOX_GREY_RGB = tuple(int(BOX_GREY_HEX[i:i+2], 16) for i in (1, 3, 5))
-    BOX_COLOR_TOLERANCE = 10       
-    
-    FORMATION_POTENTIAL_REGIONS = [  
-        (1730, 777, 63, 63),  
-        (1815, 777, 63, 63),  
-        (1901, 777, 63, 63),  
-        (1987, 777, 63, 63),
-    ]
-
-    ORDERS_POTENTIAL_REGIONS = [  
-        (2157, 775, 65, 65), 
-        (2242, 775, 65, 65), 
-        (2327, 775, 65, 65),
-        (2412, 775, 65, 65),
-    ]
-
-    UNIT_TRAIT_POTENTIAL_REGIONS = [
-        (2163, 501, 325, 25),  
-        (2163, 534, 325, 25),
-        (2163, 567, 325, 25),
-        (2163, 600, 325, 25),
-        (2163, 633, 325, 25),
-    ]
-    
-    UNIT_TRAIT_TARGET_COLORS_RGB = [
-        (133, 183, 85),  
-        (159, 160, 160),
-        (174, 53, 26), 
-        (198, 57, 25),
-    ]
     UNIT_TRAIT_COLOR_TOLERANCE = 20
-
-    # --- !!!!Boxes are measured on the inside of the intended target ---
 
     captured_formations = []
     for i, region in enumerate(FORMATION_POTENTIAL_REGIONS):
         if is_button_present(region, BOX_GREY_RGB, BOX_COLOR_TOLERANCE):
             filename = f"formation_{i+1}.png"
             pyautogui.screenshot(filename, region=region)
-            print(f"Captured formation {i+1} at {region} to {filename}")
             captured_formations.append(filename)
 
-            # --- Capture Hover Pop-up for Formation ---
             center_x = region[0] + region[2] // 2
             center_y = region[1] + region[3] // 2
             autoit.mouse_move(center_x, center_y)
-            time.sleep(0.2)
+            time.sleep(0.05)
 
             button_region = (region[0], region[1], region[2], region[3])
             popup_filename = capture_hover_popup(button_region, output_path=f"formations_popup_{i+1}.png")
-            print(f"Captured formation pop-up: {popup_filename}")
-
         else:
-            print(f"No more formations, moving on...")
             break
-        
-    print("Captured formations:", captured_formations)
 
     captured_orders = []
     for i, region in enumerate(ORDERS_POTENTIAL_REGIONS):
         if is_button_present(region, BOX_GREY_RGB, BOX_COLOR_TOLERANCE):
             filename = f"order_{i+1}.png"
             pyautogui.screenshot(filename, region=region)
-            print(f"Captured order {i+1} at {region} to {filename}")
             captured_orders.append(filename)
 
-            # --- Capture Hover Pop-up for Order ---
             center_x = region[0] + region[2] // 2
             center_y = region[1] + region[3] // 2
             autoit.mouse_move(center_x, center_y)
-            time.sleep(0.2)
+            time.sleep(0.05)
 
             button_region = (region[0], region[1], region[2], region[3])
             popup_filename = capture_hover_popup(button_region, output_path=f"order_popup_{i+1}.png")
-            print(f"Captured order pop-up: {popup_filename}")
-
         else:
-            print(f"No more orders, moving on...")
             break
 
-    print("Captured orders:", captured_orders)
-
     captured_traits = []
-    first_trait_attempt = True  # Flag to handle the first trait differently
+    first_trait_attempt = True 
     for i, region in enumerate(UNIT_TRAIT_POTENTIAL_REGIONS):
         if first_trait_attempt:
-            print("Circumventing color check for the first trait...")
             center_x = region[0] + region[2] // 2
             center_y = region[1] + region[3] // 2
             autoit.mouse_move(center_x, center_y)
-            autoit.mouse_click("left") # Click to dismiss blocking popup
-            time.sleep(0.3)
-            first_trait_attempt = False # Disable the flag for subsequent traits
+            first_trait_attempt = False
 
             filename = f"trait_{i+1}.png"
             pyautogui.screenshot(filename, region=region)
-            print(f"Captured trait {i+1} (circumvent) at {region} to {filename}")
             captured_traits.append(filename)
 
-            # --- Capture Hover Pop-up for Trait ---
             autoit.mouse_move(center_x, center_y)
-            time.sleep(0.2)
+            time.sleep(0.05)
 
             trait_region = (region[0], region[1], region[2], region[3])
             popup_filename = capture_trait_popup(trait_region, output_path=f"trait_popup_{i+1}.png")
-            print(f"Captured trait pop-up: {popup_filename}")
 
         elif is_trait_present(region, UNIT_TRAIT_TARGET_COLORS_RGB, UNIT_TRAIT_COLOR_TOLERANCE):
             filename = f"trait_{i+1}.png"
             pyautogui.screenshot(filename, region=region)
-            print(f"Captured trait {i+1} at {region} to {filename}")
             captured_traits.append(filename)
 
             # --- Capture Hover Pop-up for Trait ---
             center_x = region[0] + region[2] // 2
             center_y = region[1] + region[3] // 2
             autoit.mouse_move(center_x, center_y)
-            time.sleep(0.2)
+            time.sleep(0.05)
 
             trait_region = (region[0], region[1], region[2], region[3])
             popup_filename = capture_trait_popup(trait_region, output_path=f"trait_popup_{i+1}.png")
-            print(f"Captured trait pop-up: {popup_filename}")
 
         else:
-            print(f"Unit trait {i+1} not present.")
             break
-    print("Captured unit traits:", captured_traits)
+
     move_to_veterancy_tab()
 
 
@@ -498,20 +539,29 @@ def capture_trait_popup(button_region, output_path="trait_popup.png"):
             if final_popup_width > 0 and final_popup_height > 0:
                 screenshot = pyautogui.screenshot(region=(final_popup_left, final_popup_top, final_popup_width, final_popup_height))
                 screenshot.save(output_path)
-                print(f"Successfully captured trait pop-up to: {output_path} (dynamic top - padded)")
                 return output_path
             else:
-                print("Could not determine the trait pop-up boundaries (dynamic top - padded).")
                 return None
         else:
-            print("Could not find the top of the white text block (padded).")
             return None
 
     except Exception as e:
-        print(f"Error capturing trait pop-up (dynamic top - padded): {e}")
         return None
+    
+def interrupt_and_reset():
+    global interrupt_capture
+    print("Interrupted...")
+    interrupt_capture = True
+
+def terminate_script():
+    print(f"Terminateed...")
+    sys.exit()
+
+def main():
+    keyboard.add_hotkey(HOTKEY_START, capture_on_hotkey)
+    keyboard.add_hotkey(HOTKEY_INTERRUPT_RESET, interrupt_and_reset)
+    print(f"'Script running - {HOTKEY_START} to start', {HOTKEY_INTERRUPT_RESET} to interrupt while running and to {HOTKEY_TERMINATE} to end the script'.")
+    keyboard.wait()
 
 if __name__ == "__main__":
-    keyboard.add_hotkey(HOTKEY_START, capture_on_hotkey)
-    keyboard.wait('esc')
-    print("\nHotkey listener stopped.")
+   main()
