@@ -1,215 +1,74 @@
 import pyautogui
-import ocr_utils
-import main_attributes  
-import keyboard
-import autoit
-import time
-import json
-import sys
-import os
-
-
-# --------------------------------------------- Configuration ---------------------------------------------+
-
-HOTKEY_START = 'ctrl+e'
-HOTKEY_INTERRUPT_RESET = 'ctrl+s'
-HOTKEY_TERMINATE = 'ctrl+escape'
-
-DETAILS_TAB_COORDINATES = (2582, 1353)
-
-BOX_GREY_HEX = "#8C8C8C"
-BOX_GREY_RGB = tuple(int(BOX_GREY_HEX[i:i+2], 16) for i in (1, 3, 5))
-BOX_COLOR_TOLERANCE = 10       
-    
-FORMATION_POTENTIAL_REGIONS = [  
-        (1730, 777, 63, 63),  
-        (1815, 777, 63, 63),  
-        (1901, 777, 63, 63),  
-        (1987, 777, 63, 63),
-    ]
-
-ORDERS_POTENTIAL_REGIONS = [  
-        (2157, 775, 65, 65), 
-        (2242, 775, 65, 65), 
-        (2327, 775, 65, 65),
-        (2412, 775, 65, 65),
-    ]
-
-UNIT_TRAIT_POTENTIAL_REGIONS = [
-        (2163, 501, 325, 25),  
-        (2163, 534, 325, 25),
-        (2163, 567, 325, 25),
-        (2163, 600, 325, 25),
-        (2163, 633, 325, 25),
-    ]
-    
-UNIT_TRAIT_TARGET_COLORS_RGB = [
-        (133, 183, 85),  
-        (159, 160, 160),
-        (174, 53, 26), 
-        (198, 57, 25),
-    ]
-
-script_running = True
-
-OUTPUT_JSON_FILES = {
-    "melee infantry": "melee_infantry_units.json",
-    "ranged infantry": "ranged_infantry_units.json",
-    "cavalry": "cavalry_units.json"
-}
-
-def stop_script():
-    print("Stop hotkey detected. Exiting script.")
-    sys.exit()
-
-def hex_to_rgb(hex_color):
-    hex_color = hex_color.lstrip("#")
-    return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
-
-def colors_are_similar(rgb1, rgb2, color_tolerance):
-    return all(abs(c1 - c2) <= color_tolerance for c1, c2 in zip(rgb1, rgb2))
-
-def is_button_present(region, grey_rgb, tolerance):
-    x, y, w, h = region
-    for offset_y in range(h - 4, h):
-        sample_points = [x + w // 4, x + w // 2, x + 3 * w // 4]
-        for sample_x in sample_points:
-            pixel_color = autoit.pixel_get_color(sample_x, y + offset_y)
-            r = (pixel_color >> 16) & 0xFF
-            g = (pixel_color >> 8) & 0xFF
-            b = pixel_color & 0xFF
-            if abs(r - grey_rgb[0]) < tolerance and \
-               abs(g - grey_rgb[1]) < tolerance and \
-               abs(b - grey_rgb[2]) < tolerance:
-                return True
-    return False
-
-def append_unit_to_json(unit_data):
-    primary_type = unit_data.get('primary_type')
-    if primary_type in OUTPUT_JSON_FILES:
-        filename = OUTPUT_JSON_FILES[primary_type]
-        try:
-            with open(filename, 'r+') as f:
-                try:
-                    data = json.load(f)
-                    if isinstance(data, list):
-                        data.append(unit_data)
-                        f.seek(0)
-                        json.dump(data, f, indent=4)
-                        f.truncate()
-                    else:
-                        json.dump([unit_data], f, indent=4)
-                except json.JSONDecodeError:
-                    json.dump([unit_data], f, indent=4)
-        except FileNotFoundError:
-            with open(filename, 'w') as f:
-                json.dump([unit_data], f, indent=4)
-        print(f"Unit appended to '{filename}'")
-    else:
-        print(f"Warning: Unknown primary type '{primary_type}'. Unit not saved to a specific category file.")
-
-def capture_hover_popup(button_region, output_path="dynamic_popup.png", yellow_colors=None, title_color_hex="#9D9D9D", yellow_text_offset_up=25, yellow_text_offset_left=411):
-    try:
-        button_left, button_top, button_width, button_height = button_region
-        title_color_rgb = hex_to_rgb(title_color_hex)
-
-        if yellow_colors is None:
-            yellow_colors_hex = ["#A69879", "#AA9B7C", "#95896D"]
-            yellow_colors = [hex_to_rgb(hex_code) for hex_code in yellow_colors_hex]
-
-        def is_yellow(rgb, yellow_colors_local):
-            color_tolerance = 10
-            for yellow in yellow_colors_local:
-                if colors_are_similar(rgb, yellow, color_tolerance):
-                    return True
-            return False
-
-        center_x = button_left + button_width // 2
-        center_y = button_top + button_height // 2
-        pyautogui.moveTo(center_x, center_y)
-        time.sleep(0.05)
-
-        # Calculate potential start of the last yellow text line
-        expected_yellow_text_x = button_left - yellow_text_offset_left
-        expected_yellow_text_y_start = button_top - yellow_text_offset_up
-
-        # Search for the yellow text in a small area
-        found_yellow = False
-        yellow_text_x = -1
-        yellow_text_y_start = -1
-        for x_offset in range(-2, 2):
-            for y_offset in range(-2, 2):
-                sample_x = expected_yellow_text_x + x_offset
-                sample_y = expected_yellow_text_y_start + y_offset
-                if 0 <= sample_x < pyautogui.size()[0] and 0 <= sample_y < pyautogui.size()[1]:
-                    pixel_color = pyautogui.pixel(int(sample_x), int(sample_y))
-                    if is_yellow(pixel_color, yellow_colors):
-                        yellow_text_x = sample_x
-                        yellow_text_y_start = sample_y
-                        found_yellow = True
-                        break
-            if found_yellow:
-                break
-
-        if found_yellow:
-            # Scan upwards for the title color from the found yellow text position
-            title_top = -1
-            for y in range(yellow_text_y_start - 5, max(0, yellow_text_y_start - 300), -1): # Scan upwards
-                pixel_color = pyautogui.pixel(int(yellow_text_x), int(y))
-                if colors_are_similar(pixel_color, title_color_rgb, color_tolerance=5): # Adjust tolerance as needed
-                    title_top = y
-                    break
-
-            if title_top != -1:
-                # Define the pop-up region with final adjustments
-                popup_left = yellow_text_x - 5 - 10 # Add 10 pixels to the left
-                popup_top = title_top - 5 - 10 # Add 10 pixels to the top
-                popup_right = button_left # Use the left side of the hovered button as the right
-                popup_bottom = button_top # Use the top of the hovered button as the bottom
-
-                final_popup_left = max(0, int(popup_left))
-                final_popup_top = max(0, int(popup_top))
-                final_popup_right = min(pyautogui.size()[0], int(popup_right))
-                final_popup_bottom = min(pyautogui.size()[1], int(popup_bottom))
-
-                final_popup_width = final_popup_right - final_popup_left
-                final_popup_height = final_popup_bottom - final_popup_top
-
-                if final_popup_width > 0 and final_popup_height > 0:
-                    screenshot = pyautogui.screenshot(region=(final_popup_left, final_popup_top, final_popup_width, final_popup_height))
-                    screenshot.save(output_path)
-                    return output_path
-                else:
-                    return None
-            else:
-                return None
-        else:
-            return None
-
-    except Exception as e:
-        print(f"Error capturing dynamic hover pop-up (text-based - final - area scan): {e}")
-        return None
+import modules.main_attributes as main_attributes
+import modules.basic_attributes as basic_attributes
+import keyboard, json, sys
+from utils.navigation import move_and_click
+from config import DETAILS_TAB_COORDINATES, VETERANCY_TAB_COORDINATES, HOTKEY_START, HOTKEY_INTERRUPT_RESET, HOTKEY_TERMINATE, OUTPUT_JSON_FILES
 
 # --------------------------------------------- First Capture ---------------------------------------------
 
 def capture_on_hotkey():
-    global interrupt_capture
     print("Capturing unit data...")
-    interrupt_capture = False # Reset the flag at the start of each capture
 
-    # Strategic check points for interruption
-    if interrupt_capture:
+    try:
+        main_data = main_attributes.main_attributes_extraction()
+        move_and_click(DETAILS_TAB_COORDINATES),
+        basic_data = basic_attributes.basic_attributes_extraction()
+        move_and_click(VETERANCY_TAB_COORDINATES),
+
+        unit_data = {
+            "main_values": {
+                "unit_name": main_data.get("unit_name"),
+                "unit_tier": main_data.get("tier"),
+                "unit_max_level": main_data.get("max_level"),
+                "unit_icon_path": main_data.get("icon_path"),
+                "unit_type": main_data.get("unit_type"),
+            },
+            "attributes": {
+                "basic_attributes": {
+                    "health": basic_data.get("health"),
+                    "strength": basic_data.get("strength"),
+                    "leadership": basic_data.get("leadership"),
+                    "speed": basic_data.get("speed"),
+                    "range": basic_data.get("range"),
+                    "ammo": basic_data.get("ammo"),
+                    "labour": basic_data.get("labour")
+                },
+                "attack_attributes": {
+                    "piercing_armour_penetration": basic_data.get("piercing_armour_penetration"),
+                    "slashing_armour_penetration": basic_data.get("slashing_armour_penetration"),
+                    "blunt_armour_penetration": basic_data.get("blunt_armour_penetration"),
+                    "piercing_damage": basic_data.get("piercing_damage"),
+                    "slashing_damage": basic_data.get("slashing_damage"),
+                    "blunt_damage": basic_data.get("blunt_damage")
+                },
+                "defence_attributes": {
+                    "piercing_defence": basic_data.get("piercing_defence"),
+                    "slashing_defence": basic_data.get("slashing_defence"),
+                    "blunt_defence": basic_data.get("blunt_defence"),
+                    "block": basic_data.get("block"),
+                    "block_recovery": basic_data.get("block_recovery")
+                },
+            },
+            "unit_specific": {
+                "terrain_resistances": {
+                    "desert": basic_data.get("desert"),
+                    "plain": basic_data.get("plain"),
+                    "hills": basic_data.get("hills"),
+                    "steppe": basic_data.get("steppe"),
+                    "urban": basic_data.get("urban")
+                },
+                "formations": basic_data.get("formations"),
+                "orders": basic_data.get("orders"),      
+                "traits": basic_data.get("traits")
+            },
+        }
+
+    except Exception as e:
+        print(f"Error during unit data extraction: {e}")
         return
 
-    unit_info = main_attributes.main_attributes_extraction()
-
-    if interrupt_capture:
-        return
-
-    primary_type = unit_info.get('unit_type', {}).get('primary')
-
-    if interrupt_capture:
-        return
+    primary_type = unit_data.get('unit_type', {}).get('primary')
 
     if primary_type and primary_type in OUTPUT_JSON_FILES:
         output_filename = OUTPUT_JSON_FILES[primary_type]
@@ -219,127 +78,34 @@ def capture_on_hotkey():
                     data = json.load(f)
                     if isinstance(data, list):
                         found = False
-                        if data:
-                            for i, entry in enumerate(data):
-                                if interrupt_capture:
-                                    print("Capture interrupted during JSON processing.")
-                                    return
-                                if entry.get('unit_name') == unit_info.get('unit_name'):
-                                    print(f"Match found: Overwriting ({entry.get('unit_name')}) using new data'")
-                                    data[i] = unit_info
-                                    found = True
-                                    break
-                                else:
-                                    print(f"No match: Generating new entry for {unit_info.get('unit_name')}")
+                        for i, entry in enumerate(data):
+                            if entry.get('unit_name') == unit_data.get('unit_name'):
+                                print(f"Match found: Overwriting ({entry.get('unit_name')}) using new data'")
+                                data[i] = unit_data
+                                found = True
+                                break
                         if not found:
-                            if not interrupt_capture:
-                                data.append(unit_info)
-                        if not interrupt_capture:
-                            f.seek(0)
-                            json.dump(data, f, indent=4)
-                            f.truncate()
+                            data.append(unit_data)
+                        f.seek(0)
+                        json.dump(data, f, indent=4)
+                        f.truncate()
                     else:
-                        if not interrupt_capture:
-                            json.dump([unit_info], f, indent=4)
+                        f.seek(0)
+                        json.dump([unit_data], f, indent=4)
+                        f.truncate()
                 except json.JSONDecodeError:
-                    if not interrupt_capture:
-                        json.dump([unit_info], f, indent=4)
+                    f.seek(0)
+                    json.dump([unit_data], f, indent=4)
+                    f.truncate()
         except FileNotFoundError:
-            if not interrupt_capture:
-                with open(output_filename, 'w') as f:
-                    json.dump([unit_info], f, indent=4)
-        if not interrupt_capture:
-            print(f"Unit data saved to '{output_filename}' (overwrote if existing).")
+            with open(output_filename, 'w') as f:
+                json.dump([unit_data], f, indent=4)
+
+        print(f"Unit data saved to '{output_filename}' (overwrote if existing).")
     else:
-        if not interrupt_capture:
-            print(f"Warning: Unknown or missing primary type '{primary_type}'. Unit data not saved.")
+        print(f"Warning: Unknown or missing primary type '{primary_type}'. Unit data not saved.")
 
 # --- Navigate to the next tab ---
-
-    hold_duration = 0.05  
-
-    autoit.mouse_move(DETAILS_TAB_COORDINATES[0], DETAILS_TAB_COORDINATES[1])
-    autoit.mouse_down("left")
-    time.sleep(hold_duration)
-    autoit.mouse_up("left")
-    time.sleep(0.2)  
-
-# --------------------------------------------- Second Capture ---------------------------------------------
-
-    UNIT_TRAIT_COLOR_TOLERANCE = 20
-
-    captured_formations = []
-    for i, region in enumerate(FORMATION_POTENTIAL_REGIONS):
-        if is_button_present(region, BOX_GREY_RGB, BOX_COLOR_TOLERANCE):
-            filename = f"formation_{i+1}.png"
-            pyautogui.screenshot(filename, region=region)
-            captured_formations.append(filename)
-
-            center_x = region[0] + region[2] // 2
-            center_y = region[1] + region[3] // 2
-            autoit.mouse_move(center_x, center_y)
-            time.sleep(0.05)
-
-            button_region = (region[0], region[1], region[2], region[3])
-            popup_filename = capture_hover_popup(button_region, output_path=f"formations_popup_{i+1}.png")
-        else:
-            break
-
-    captured_orders = []
-    for i, region in enumerate(ORDERS_POTENTIAL_REGIONS):
-        if is_button_present(region, BOX_GREY_RGB, BOX_COLOR_TOLERANCE):
-            filename = f"order_{i+1}.png"
-            pyautogui.screenshot(filename, region=region)
-            captured_orders.append(filename)
-
-            center_x = region[0] + region[2] // 2
-            center_y = region[1] + region[3] // 2
-            autoit.mouse_move(center_x, center_y)
-            time.sleep(0.05)
-
-            button_region = (region[0], region[1], region[2], region[3])
-            popup_filename = capture_hover_popup(button_region, output_path=f"order_popup_{i+1}.png")
-        else:
-            break
-
-    captured_traits = []
-    first_trait_attempt = True 
-    for i, region in enumerate(UNIT_TRAIT_POTENTIAL_REGIONS):
-        if first_trait_attempt:
-            center_x = region[0] + region[2] // 2
-            center_y = region[1] + region[3] // 2
-            autoit.mouse_move(center_x, center_y)
-            first_trait_attempt = False
-
-            filename = f"trait_{i+1}.png"
-            pyautogui.screenshot(filename, region=region)
-            captured_traits.append(filename)
-
-            autoit.mouse_move(center_x, center_y)
-            time.sleep(0.05)
-
-            trait_region = (region[0], region[1], region[2], region[3])
-            popup_filename = capture_trait_popup(trait_region, output_path=f"trait_popup_{i+1}.png")
-
-        elif is_trait_present(region, UNIT_TRAIT_TARGET_COLORS_RGB, UNIT_TRAIT_COLOR_TOLERANCE):
-            filename = f"trait_{i+1}.png"
-            pyautogui.screenshot(filename, region=region)
-            captured_traits.append(filename)
-
-            # --- Capture Hover Pop-up for Trait ---
-            center_x = region[0] + region[2] // 2
-            center_y = region[1] + region[3] // 2
-            autoit.mouse_move(center_x, center_y)
-            time.sleep(0.05)
-
-            trait_region = (region[0], region[1], region[2], region[3])
-            popup_filename = capture_trait_popup(trait_region, output_path=f"trait_popup_{i+1}.png")
-
-        else:
-            break
-
-    move_to_veterancy_tab()
-
 
 # --- Basic Attributes ---
 
@@ -440,114 +206,6 @@ def capture_on_hotkey():
     screenshot_unit_urban = pyautogui.screenshot(region=unit_urban_region)
     screenshot_unit_urban.save("unit_urban.png")                    
 
-# --- Formations ---
-
-def move_to_veterancy_tab():
-    autoit.mouse_move(1707, 323)
-    autoit.mouse_down("left")
-    time.sleep(0.05)
-    autoit.mouse_up("left")
-
-def is_trait_present(region, target_colors_rgb, tolerance):
-    x, y, w, h = region
-    bracket_offset_x = 48
-    bracket_offset_y = 14
-
-    sample_x = x + bracket_offset_x
-    sample_y = y + bracket_offset_y
-
-    pixel_color = autoit.pixel_get_color(sample_x, sample_y)
-    r = (pixel_color >> 16) & 0xFF
-    g = (pixel_color >> 8) & 0xFF
-    b = pixel_color & 0xFF
-    current_rgb = (r, g, b)
-
-    for target_color in target_colors_rgb:
-        if all(abs(current - target) < tolerance for current, target in zip(current_rgb, target_color)):
-            return True
-    return False
-
-def _find_white_text_top(start_x_center, start_y, white_colors, color_tolerance=20, search_distance_lines=10, line_spacing=30, horizontal_check_offset=5):
-
-    screen_width, screen_height = pyautogui.size()
-    top_y = start_y # Initialize top_y with the starting y (bottom line)
-    previous_top_y = start_y # Keep track of the last y where white text was found
-
-    for i in range(1, search_distance_lines + 1):
-        check_y = start_y - i * line_spacing
-        if check_y < 0:
-            break
-        found_white_in_line_bottom = False
-        for x_offset in range(-horizontal_check_offset, horizontal_check_offset + 1):
-            check_x = start_x_center + x_offset
-            if 0 <= check_x < screen_width and 0 <= check_y < screen_height:
-                pixel_color = pyautogui.pixel(int(check_x), int(check_y))
-                for white_color in white_colors:
-                    if colors_are_similar(pixel_color, white_color, color_tolerance):
-                        top_y = check_y
-                        found_white_in_line_bottom = True
-                        break
-                if found_white_in_line_bottom:
-                    break # Found white in this line, move to the next line up
-
-        if not found_white_in_line_bottom:
-            return previous_top_y # No white text found on this line, return the previous top_y
-        else:
-            previous_top_y = top_y # Update the previous top_y if white text was found
-
-    return top_y if top_y != start_y else -1 # Return the topmost y found, or -1 if none found above the start
-
-def capture_trait_popup(button_region, output_path="trait_popup.png"):
-    try:
-        button_left, button_top, button_width, button_height = button_region
-        screen_width, screen_height = pyautogui.size()
-        white_colors_hex = ["#8C8C8C", "#6B6B6C", "#CDCDCD", "#454546"]
-        white_colors_rgb = [hex_to_rgb(hex_code) for hex_code in white_colors_hex]
-        bottom_line_offset_fixed = 58
-        text_block_x_offset_fixed = 1795 + 10 # Fixed left x + some padding (approximate start)
-        line_spacing_fixed = 30
-        popup_left_fixed = 1785
-        popup_right_fixed = 2143
-        popup_bottom_est = button_top - 36
-        search_distance_lines_fixed = 10
-        horizontal_check_offset_fixed = 5
-        top_padding_fixed = 25 # Padding to add to the top
-
-        center_x = button_left + button_width // 2
-        center_y = button_top + button_height // 2
-        pyautogui.moveTo(center_x, center_y)
-        time.sleep(0.05)
-
-        # Calculate the starting y-position for the bottom line search
-        start_search_y = max(0, int(popup_bottom_est - bottom_line_offset_fixed))
-
-        # Approximate the starting x-coordinate of the text block
-        start_x_center_approx = int(text_block_x_offset_fixed + 10) # Add a bit to get closer to text
-
-        # Scan upwards line by line to find the top of the white text block
-        popup_top = _find_white_text_top(start_x_center_approx, start_search_y, white_colors_rgb, color_tolerance=20, search_distance_lines=search_distance_lines_fixed, line_spacing=line_spacing_fixed, horizontal_check_offset=horizontal_check_offset_fixed)
-
-        if popup_top != -1:
-            final_popup_left = popup_left_fixed
-            final_popup_top = max(0, int(popup_top - top_padding_fixed)) # Apply the top padding
-            final_popup_right = popup_right_fixed
-            final_popup_bottom = min(screen_height, int(popup_bottom_est))
-
-            final_popup_width = final_popup_right - final_popup_left
-            final_popup_height = final_popup_bottom - final_popup_top
-
-            if final_popup_width > 0 and final_popup_height > 0:
-                screenshot = pyautogui.screenshot(region=(final_popup_left, final_popup_top, final_popup_width, final_popup_height))
-                screenshot.save(output_path)
-                return output_path
-            else:
-                return None
-        else:
-            return None
-
-    except Exception as e:
-        return None
-    
 def interrupt_and_reset():
     global interrupt_capture
     print("Interrupted...")
