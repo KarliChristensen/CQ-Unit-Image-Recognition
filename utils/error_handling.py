@@ -58,6 +58,19 @@ def handle_ocr_error(screenshot, attribute_name, unit_name=None, expected_type=N
                 screenshot.save(filename)
             return None
         return value # Return the valid integer if no error
+    elif ocr_text is not None and attribute_name in ["basic_attributes", "attack_attributes", "defence_attributes"]:
+        print(f"Warning: {attribute_name} - {ocr_text} Image saved to {filename}.")
+        if cv2_image is not None and isinstance(cv2_image, np.ndarray):
+            cv2.imwrite(filename, cv2_image)
+        else:
+            screenshot.save(filename)
+        return None
+    elif ocr_text is not None:
+        return ocr_text.strip()
+    elif expected_type is None and cv2_image is not None:
+        print(f"{warning_prefix} value is invalid. Image saved to {filename}.")
+        cv2.imwrite(filename, cv2_image)
+        return None
     elif ocr_text is not None:
         return ocr_text.strip()
     elif expected_type is None and cv2_image is not None:

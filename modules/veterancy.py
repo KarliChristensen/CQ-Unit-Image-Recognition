@@ -1,0 +1,1 @@
+# veterancy_attributes.py
