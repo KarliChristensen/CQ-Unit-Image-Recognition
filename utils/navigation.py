@@ -8,4 +8,10 @@ def move_and_click(coordinates):
     autoit.mouse_down("left")
     time.sleep(0.05)
     autoit.mouse_up("left")
-    time.sleep(0.2)
+    time.sleep(0.05)
+
+def move(coordinates):
+    x, y = coordinates
+    time.sleep(0.05)
+    autoit.mouse_move(x, y)
+    time.sleep(0.05)

@@ -1,11 +1,11 @@
-import pyautogui
 import modules.main_attributes as main_attributes
 import modules.basic_attributes as basic_attributes
 import modules.attack_attributes as attack_attributes
 import modules.defence_attributes as defence_attributes
 import modules.unit_specific_attributes as unit_specific_attributes
-import keyboard, json, sys
+import keyboard, json, sys, pyautogui
 from utils.navigation import move_and_click
+
 from config import DETAILS_TAB_COORDINATES, ATTRIBUTES_TAB_COORDINATES, VETERANCY_TAB_COORDINATES, HOTKEY_START, HOTKEY_INTERRUPT_RESET, HOTKEY_TERMINATE, OUTPUT_JSON_FILES
 
 # --------------------------------------------- First Capture ---------------------------------------------
@@ -14,14 +14,17 @@ def capture_on_hotkey():
     print("Capturing unit data...")
 
     try:
+        screenshot()
         main_data = main_attributes.main_attributes_extraction()
         move_and_click(DETAILS_TAB_COORDINATES)
         move_and_click(ATTRIBUTES_TAB_COORDINATES)
+        screenshot()
         basic_data = basic_attributes.basic_attributes_extraction()
         attack_data = attack_attributes.attack_attributes_extraction()
         defence_data = defence_attributes.defence_attributes_extraction()
         unit_specific_data = unit_specific_attributes.unit_specific_attributes_extraction()
         move_and_click(VETERANCY_TAB_COORDINATES)
+        screenshot()
 
         unit_data = {
             "main_values": {
@@ -80,6 +83,18 @@ def capture_on_hotkey():
         print(f"Unit data saved to '{output_filename}' (overwrote if existing).")
     else:
         print(f"Warning: Unknown or missing primary type '{primary_type}'. Unit data not saved.")
+
+# --- Helper Functions ---
+
+screenshot_counter = 0
+
+def screenshot():
+    global screenshot_counter
+    screenshot = pyautogui.screenshot()
+    screenshot_counter += 1
+    filename = f"screenshot_{screenshot_counter}.png"
+    screenshot.save(filename)
+    return filename
 
 def interrupt_and_reset():
     global interrupt_capture

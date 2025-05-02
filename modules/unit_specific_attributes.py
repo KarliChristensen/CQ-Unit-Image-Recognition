@@ -1,14 +1,15 @@
 # unit_specific_attributes.py
 
 import autoit, pyautogui, time
-from utils.functions import is_button_present, capture_hover_popup, capture_trait_popup, is_trait_present
-from utils.ocr_utils import perform_ocr 
+from utils.functions import is_button_present, capture_hover_popup
 from utils.error_handling import handle_ocr_error
-from config import FORMATION_POTENTIAL_REGIONS, BOX_GREY_RGB, BOX_COLOR_TOLERANCE, ORDERS_POTENTIAL_REGIONS, UNIT_TRAIT_POTENTIAL_REGIONS, UNIT_TRAIT_TARGET_COLORS_RGB, UNIT_TRAIT_COLOR_TOLERANCE, TERRAIN_Y_LINE, TERRAIN_X_START, TERRAIN_X_OFFSET, TERRAIN_BOX
+from utils.ocr import perform_ocr
+from .trait_handler import capture_unit_traits
+from config import FORMATION_POTENTIAL_REGIONS, BOX_GREY_RGB, BOX_COLOR_TOLERANCE, ORDERS_POTENTIAL_REGIONS, TERRAIN_Y_LINE, TERRAIN_X_START, TERRAIN_X_OFFSET, TERRAIN_BOX
 
 def unit_specific_attributes_extraction():
-    terrain = terrain_extraction() 
-    traits = capture_unit_traits()
+    terrain = terrain_extraction()
+    traits_data = capture_unit_traits()
     formations = capture_formations()
     orders = capture_unit_orders()
 
@@ -16,7 +17,7 @@ def unit_specific_attributes_extraction():
         "terrain_resistances": terrain,
         "formations": formations,
         "orders": orders,
-        "traits": traits
+        "traits": traits_data
     }
     return unit_specific_data
 
@@ -94,43 +95,3 @@ def terrain_extraction():
         terrain_attributes_data[attribute["name"]] = value
 
     return terrain_attributes_data
-
-# --- Traits Extraction ---
-
-def capture_unit_traits():
-    captured_traits = []
-    first_trait_attempt = True
-    for i, region in enumerate(UNIT_TRAIT_POTENTIAL_REGIONS):
-        if first_trait_attempt:
-            center_x = region[0] + region[2] // 2
-            center_y = region[1] + region[3] // 2
-            autoit.mouse_move(center_x, center_y)
-            first_trait_attempt = False
-
-            filename = f"trait_{i+1}.png"
-            pyautogui.screenshot(filename, region=region)
-            captured_traits.append(filename)
-
-            autoit.mouse_move(center_x, center_y)
-            time.sleep(0.05)
-
-            trait_region = (region[0], region[1], region[2], region[3])
-            popup_filename = capture_trait_popup(trait_region, output_path=f"trait_popup_{i+1}.png")
-
-        elif is_trait_present(region, UNIT_TRAIT_TARGET_COLORS_RGB, UNIT_TRAIT_COLOR_TOLERANCE):
-            filename = f"trait_{i+1}.png"
-            pyautogui.screenshot(filename, region=region)
-            captured_traits.append(filename)
-
-            # --- Capture Hover Pop-up for Trait ---
-            center_x = region[0] + region[2] // 2
-            center_y = region[1] + region[3] // 2
-            autoit.mouse_move(center_x, center_y)
-            time.sleep(0.05)
-
-            trait_region = (region[0], region[1], region[2], region[3])
-            popup_filename = capture_trait_popup(trait_region, output_path=f"trait_popup_{i+1}.png")
-
-        else:
-            break
-    return captured_traits

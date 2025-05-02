@@ -1,24 +1,25 @@
 # main_attributes.py
 
 from utils.error_handling import handle_ocr_error
-from utils.ocr_utils import perform_ocr
+from utils.error_handling import set_unit_name
+from utils.ocr import perform_ocr, perform_ocr_type
 import pyautogui, re
 
 from config import UNIT_NAME_REGION, UNIT_TIER_REGION, ICON_REGION, TYPE_REGION, STAR_COLOR, STAR_Y_COORDINATE, STAR_START_X_COORDINATE, STAR_X_OFFSETS, MAX_POSSIBLE_STARS, MAX_LEVEL_REGION
 
-current_unit_name = None
 
 # --------------------------------------------- Functions ---------------------------------------------
 
 def main_attributes_extraction():
-    current_unit_name = extract_unit_name()
+    unit_name = extract_unit_name()
+    set_unit_name(unit_name)
     unit_tier = extract_unit_tier()
     max_level = extract_max_level()
     unit_type = extract_unit_type()
     icon_path = extract_icon()
 
     unit_data = {
-        'unit_name': current_unit_name,
+        'unit_name': unit_name,
         'unit_tier': unit_tier,
         'max_level': max_level,
         'unit_type': unit_type,
@@ -35,7 +36,7 @@ def extract_unit_name():
     screenshot_unit_name = pyautogui.screenshot(region=unit_name_region)
     name_text = perform_ocr(screenshot_unit_name, threshold=True, threshold_value=180)
     if name_text is not None:
-        normalized_text = re.sub(r'\s+', ' ', name_text).strip().replace("_", " ")
+        normalized_text = re.sub(r'\s+', ' ', name_text).strip()
         return normalized_text.lower()
     else:
         handle_ocr_error(screenshot_unit_name, "unit_name")
@@ -73,32 +74,40 @@ def extract_max_level():
     
 def extract_unit_type():
     type_region = TYPE_REGION
-    screenshot_type = pyautogui.screenshot(region=type_region)
-    type_text = perform_ocr(screenshot_type, threshold=True, threshold_value=180)
+    screenshot_unit_type = pyautogui.screenshot(region=type_region)
+    type_text = perform_ocr_type(screenshot_unit_type, debug=True, threshold=True, threshold_value=180)
     unit_type = None
     unit_subtype = None
     import re
     if type_text:
-        normalized_text = re.sub(r'\s+', ' ', type_text).strip().replace("_", " ")
-        parts = normalized_text.split(" ")
-        primary_type_part = parts[0] + " " + parts[1] if len(parts) > 1 else None
-        subtype_part = " ".join(parts[2:]) if len(parts) > 2 else None
+        normalized_text = re.sub(r'\s+', ' ', type_text).strip().replace("_", " ").replace("_", " ")
+        parts = normalized_text.split("-")
+        print(normalized_text)
 
-        if primary_type_part:
-            primary_type_lower = primary_type_part.lower().strip()
-            if "melee infantry" in primary_type_lower:
+        if len(parts) > 0:
+            primary_type_part = parts[0].strip()
+            primary_type_lower = primary_type_part.lower()
+
+            if "meleeinfantry" in primary_type_lower:
                 unit_type = "melee infantry"
-                if subtype_part:
-                    subtype_lower = subtype_part.lower().strip()
-                    subtypes = ["polearm", "tower shield", "buckler shield", "special"]
-                    for subtype in subtypes:
-                        if subtype in subtype_lower:
-                            unit_subtype = subtype
+                if len(parts) > 1:
+                    subtype_part = parts[1].strip()
+                    subtype_lower = subtype_part.lower()
+                    subtype_mapping = {
+                        "polearm": "polearm",
+                        "towershield": "tower shield",
+                        "bucklershield": "buckler shield",
+                        "special": "special"
+                    }
+                    for ocr_subtype, display_subtype in subtype_mapping.items():
+                        if ocr_subtype in subtype_lower:
+                            unit_subtype = display_subtype
                             break
-            elif "ranged infantry" in primary_type_lower:
+            elif "rangedinfantry" in primary_type_lower:
                 unit_type = "ranged infantry"
-                if subtype_part:
-                    subtype_lower = subtype_part.lower().strip()
+                if len(parts) > 1:
+                    subtype_part = parts[1].strip()
+                    subtype_lower = subtype_part.lower()
                     subtypes = ["javelin", "archer", "crossbowman", "arquebusier", "special"]
                     for subtype in subtypes:
                         if subtype in subtype_lower:
@@ -106,8 +115,9 @@ def extract_unit_type():
                             break
             elif "cavalry" in primary_type_lower:
                 unit_type = "cavalry"
-                if subtype_part:
-                    subtype_lower = subtype_part.lower().strip()
+                if len(parts) > 1:
+                    subtype_part = parts[1].strip()
+                    subtype_lower = subtype_part.lower()
                     subtypes = ["lancer", "melee", "special"]
                     for subtype in subtypes:
                         if subtype in subtype_lower:
@@ -115,16 +125,17 @@ def extract_unit_type():
                             break
 
     else:
-        handle_ocr_error(screenshot_type, "unit_type")
-        print(f"Type of unit_type before return: {type(unit_type)}") 
+        handle_ocr_error(screenshot_unit_type, "unit_type")
+        print(f"Type of unit_type before return: {type(unit_type)}")
         print(f"Returning: {{'primary': {unit_type}, 'subtype': {unit_subtype}}}")
     return {'primary': unit_type, 'subtype': unit_subtype}
 
 # --- Icon Extraction ---
 
+# --- Icon Extraction ---
+
 def extract_icon():
-    icon_region = ICON_REGION
-    screenshot_icon = pyautogui.screenshot(region=icon_region)
+    screenshot_icon = pyautogui.screenshot(region=ICON_REGION)
     screenshot_icon.save("icon.png")
     return "icon.png"
 

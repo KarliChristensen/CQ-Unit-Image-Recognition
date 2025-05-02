@@ -18,7 +18,7 @@ UNIT_NAME_REGION = (760, 140, 465, 60)
 UNIT_TIER_REGION = (760, 190, 320, 40)
 ICON_REGION = (599, 140, 134, 134)
 TYPE_REGION = (840, 240, 480, 40)
-STAR_COLOR = (210, 210, 210)  # RGB for #D2D2D2
+STAR_COLOR = (210, 210, 210)
 STAR_Y_COORDINATE = 22
 STAR_START_X_COORDINATE = 16
 STAR_X_OFFSETS = [8, 19]
@@ -27,15 +27,24 @@ MAX_LEVEL_REGION = (790, 405, 55, 25)
 
 # --------------------------------------------- Basic Attribute Configuration ---------------------------------------------
 
-BASIC_NUMBERS_REGION = (1400, 440, 130, 240)
+BASIC_Y_START = (450)
+BASIC_X_FIXED = (1425)
+BASIC_Y_OFFSET = (32)
+BASIC_BOX = (67, 25) 
 
 # --------------------------------------------- Attack Attribute Configuration ---------------------------------------------
 
-ATTACK_NUMBERS_REGION = (1400, 740, 130, 240)
+ATTACK_Y_START = (758)
+ATTACK_X_FIXED = (1425)
+ATTACK_Y_OFFSET = (32)
+ATTACK_BOX = (67, 25) 
 
 # --------------------------------------------- Defence Attribute Configuration ---------------------------------------------
 
-DEFENCE_NUMBERS_REGION = (1400, 1020, 130, 180)
+DEFENCE_Y_START = (1022)
+DEFENCE_X_FIXED = (1425)
+DEFENCE_Y_OFFSET = (32)
+DEFENCE_BOX = (67, 25) 
 
 # --------------------------------------------- Unit Specific Attribute Configuration ---------------------------------------------
 
@@ -58,20 +67,20 @@ ORDERS_POTENTIAL_REGIONS = [
     ]
 
 UNIT_TRAIT_POTENTIAL_REGIONS = [
-        (2163, 501, 325, 25),  
-        (2163, 534, 325, 25),
-        (2163, 567, 325, 25),
-        (2163, 600, 325, 25),
-        (2163, 633, 325, 25),
+        (2210, 501, 325, 25),  
+        (2210, 534, 325, 25),
+        (2210, 567, 325, 25),
+        (2210, 600, 325, 25),
+        (2210, 633, 325, 25),
     ]
     
 UNIT_TRAIT_TARGET_COLORS_RGB = [
-        (133, 183, 85),  
-        (159, 160, 160),
-        (174, 53, 26), 
-        (198, 57, 25),
+        (130, 179, 83),  
+        (186, 55, 25),
+        (155, 156, 157), 
     ]
-UNIT_TRAIT_COLOR_TOLERANCE = 20
+    
+UNIT_TRAIT_COLOR_TOLERANCE = 50
 
 # --- Terrain ---
 
