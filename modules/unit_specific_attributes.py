@@ -4,13 +4,15 @@ import autoit, pyautogui, time
 from utils.functions import is_button_present, capture_hover_popup
 from utils.error_handling import handle_ocr_error
 from utils.ocr import perform_ocr
+from utils.navigation import move
 from .trait_handler import capture_unit_traits
+from .formation_handler import capture_unit_formations
 from config import FORMATION_POTENTIAL_REGIONS, BOX_GREY_RGB, BOX_COLOR_TOLERANCE, ORDERS_POTENTIAL_REGIONS, TERRAIN_Y_LINE, TERRAIN_X_START, TERRAIN_X_OFFSET, TERRAIN_BOX
 
 def unit_specific_attributes_extraction():
     terrain = terrain_extraction()
     traits_data = capture_unit_traits()
-    formations = capture_formations()
+    formations = capture_unit_formations()
     orders = capture_unit_orders()
 
     unit_specific_data = {
@@ -22,25 +24,6 @@ def unit_specific_attributes_extraction():
     return unit_specific_data
 
 # --- Formation Extraction ---
-
-def capture_formations():
-    captured_formations = []
-    for i, region in enumerate(FORMATION_POTENTIAL_REGIONS):
-        if is_button_present(region, BOX_GREY_RGB, BOX_COLOR_TOLERANCE):
-            filename = f"formation_{i+1}.png"
-            pyautogui.screenshot(filename, region=region)
-            captured_formations.append(filename)
-
-            center_x = region[0] + region[2] // 2
-            center_y = region[1] + region[3] // 2
-            autoit.mouse_move(center_x, center_y)
-            time.sleep(0.05)
-
-            button_region = (region[0], region[1], region[2], region[3])
-            popup_filename = capture_hover_popup(button_region, output_path=f"formations_popup_{i+1}.png")
-        else:
-            break
-    return captured_formations
 
 # --- Orders Extraction ---
 
@@ -54,8 +37,7 @@ def capture_unit_orders():
 
             center_x = region[0] + region[2] // 2
             center_y = region[1] + region[3] // 2
-            autoit.mouse_move(center_x, center_y)
-            time.sleep(0.05)
+            move((center_x, center_y))
 
             button_region = (region[0], region[1], region[2], region[3])
             popup_filename = capture_hover_popup(button_region, output_path=f"order_popup_{i+1}.png")

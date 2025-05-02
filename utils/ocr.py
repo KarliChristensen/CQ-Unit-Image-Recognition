@@ -6,7 +6,9 @@ import cv2
 import numpy as np
 from .functions import save_element
 
-def perform_ocr(image, threshold=False, threshold_value=150, psm=None, popup_width=None):
+debug_count = 0
+
+def perform_ocr(image, threshold=False, debug=False, threshold_value=150, psm=None):
     try:
         img = image.convert('L')
 
@@ -18,8 +20,9 @@ def perform_ocr(image, threshold=False, threshold_value=150, psm=None, popup_wid
         config = ''
         if psm:
             config += f'--psm {psm}'
-        if popup_width:
-            config += f' -c textblock_width={popup_width}'
+        if debug == True:
+            save_element(img)
+
 
         text = pytesseract.image_to_string(img, config=config)
         cleaned_text = text.strip()
@@ -32,7 +35,7 @@ def perform_ocr(image, threshold=False, threshold_value=150, psm=None, popup_wid
         print(f"An error occurred during OCR: {e}")
         return None
 
-def perform_ocr_type(image, threshold=False, debug=True, threshold_value=150, psm=None, popup_width=None):
+def perform_ocr_type(image, threshold=False, debug=False, threshold_value=150, psm=None):
     try:
         img = image.convert('L')
 
@@ -44,10 +47,8 @@ def perform_ocr_type(image, threshold=False, debug=True, threshold_value=150, ps
         config = ''
         if psm:
             config += f'--psm {psm}'
-        if popup_width:
-            config += f' -c textblock_width={popup_width}'
         if debug == True:
-            save_element(img, "Threshed Image ")
+            save_element(img )
 
         text = pytesseract.image_to_string(img, config=config)
         cleaned_text = text.strip()
@@ -69,7 +70,7 @@ def perform_ocr_single_line(image, debug=False, threshold=False, threshold_value
             _, thresh_img_np = cv2.threshold(img_np, threshold_value, 255, cv2.THRESH_BINARY)
             img = Image.fromarray(thresh_img_np)
         if debug == True:
-            save_element(img, "Threshed Image ")
+            save_element(img)
 
         config = '--psm 7'
         text = pytesseract.image_to_string(img, config=config)

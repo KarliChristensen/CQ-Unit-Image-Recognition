@@ -2,6 +2,7 @@
 
 import pyautogui, time, json, autoit
 from config import OUTPUT_JSON_FILES
+from .navigation import move
 
 def capture_hover_popup(button_region, output_path="dynamic_popup.png", yellow_colors=None, title_color_hex="#9D9D9D", yellow_text_offset_up=25, yellow_text_offset_left=411):
     try:
@@ -21,8 +22,7 @@ def capture_hover_popup(button_region, output_path="dynamic_popup.png", yellow_c
 
         center_x = button_left + button_width // 2
         center_y = button_top + button_height // 2
-        pyautogui.moveTo(center_x, center_y)
-        time.sleep(0.05)
+        move((center_x, center_y))
 
         expected_yellow_text_x = button_left - yellow_text_offset_left
         expected_yellow_text_y_start = button_top - yellow_text_offset_up
@@ -132,7 +132,7 @@ def colors_are_similar(rgb1, rgb2, color_tolerance):
 debug_screenshot_counter = 0
 debug_save_counter = 0
 
-def screenshot_element(region, filename):
+def screenshot_element(region):
     global debug_screenshot_counter
     debug_screenshot_counter += 1
     screenshot = pyautogui.screenshot(region)
@@ -140,9 +140,9 @@ def screenshot_element(region, filename):
     screenshot.save(filename)
     return filename
 
-def save_element(image, filename_base):
+def save_element(image):
     global debug_save_counter
     debug_save_counter += 1
-    filename = f"{filename_base}_DEBUG_{debug_save_counter}.png"
+    filename = f"DEBUG_{debug_save_counter}.png"  
     image.save(filename)
     return filename

@@ -4,8 +4,8 @@ import autoit, pyautogui, time
 from PIL import Image
 import cv2
 import numpy as np
-from utils.ocr import perform_ocr_type, perform_ocr_single_line, perform_ocr
-from utils.functions import colors_are_similar, hex_to_rgb, save_element
+from utils.ocr import perform_ocr_single_line, perform_ocr
+from utils.functions import colors_are_similar, hex_to_rgb
 from utils.navigation import move
 from config import UNIT_TRAIT_COLOR_TOLERANCE, UNIT_TRAIT_POTENTIAL_REGIONS, UNIT_TRAIT_TARGET_COLORS_RGB
 
@@ -91,7 +91,7 @@ def get_trait_popup_boundaries(button_region):
     else:
         return None
 
-def capture_trait_popup(button_region, output_path="trait_popup.png"):
+def capture_trait_popup(button_region):
     try:
         boundaries = get_trait_popup_boundaries(button_region)
         if boundaries:
@@ -134,12 +134,10 @@ def capture_trait_popup(button_region, output_path="trait_popup.png"):
         return None
 
 def process_trait(region, i):
-    title_filename = f"trait_{i+1}.png"
-    pyautogui.screenshot(title_filename, region=region)
+    title_screenshot = pyautogui.screenshot(region=region)
     trait_title = None
     try:
-        title_image = Image.open(title_filename)
-        trait_title = perform_ocr(title_image, psm=7)
+        trait_title = perform_ocr(title_screenshot, psm=7)
     except Exception as e:
         print(f"Error during title OCR: {e}")
 
@@ -152,7 +150,6 @@ def process_trait(region, i):
         "trait color": trait_color,
         "modifiers": []
     }
-
 
 def capture_unit_traits():
     captured_traits_data = []
