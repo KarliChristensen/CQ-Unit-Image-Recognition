@@ -133,7 +133,7 @@ def capture_trait_popup(button_region):
         print(f"Error in capture_trait_popup: {e}")
         return None
 
-def process_trait(region, i):
+def process_trait(region):
     title_screenshot = pyautogui.screenshot(region=region)
     trait_title = None
     try:
@@ -158,26 +158,21 @@ def capture_unit_traits():
         trait_present = False
 
         if first_trait_attempt:
-            center_x = region[0] + region[2] // 2
-            center_y = region[1] + region[3] // 2
-            move((center_x, center_y))
+
+            move(region)
             first_trait_attempt = False
             trait_present = is_trait_present(region, UNIT_TRAIT_TARGET_COLORS_RGB, UNIT_TRAIT_COLOR_TOLERANCE)
             if trait_present:
-                trait_data = process_trait(region, i)
+                trait_data = process_trait(region)
                 captured_traits_data.append(trait_data)
-                move((center_x, center_y))
-                time.sleep(0.05)
+                move(region)
 
         else:
             trait_present = is_trait_present(region, UNIT_TRAIT_TARGET_COLORS_RGB, UNIT_TRAIT_COLOR_TOLERANCE)
             if trait_present:
-                trait_data = process_trait(region, i)
+                trait_data = process_trait(region)
                 captured_traits_data.append(trait_data)
-                center_x = region[0] + region[2] // 2
-                center_y = region[1] + region[3] // 2
-                move((center_x, center_y))
-                time.sleep(0.05)
+                move(region)
 
         if not trait_present and not first_trait_attempt:
             break
@@ -213,8 +208,8 @@ def find_white_text_top(start_x_center, start_y, white_colors, color_tolerance=2
 
     return top_y if top_y != start_y else -1
 
-def get_text_lines(image, threshold_value=200): # We won't use threshold_value directly now
-    """Identifies the vertical boundaries of text lines in an image using Otsu's method."""
+def get_text_lines(image):
+
     img_gray = image.convert('L')
     img_np = np.array(img_gray)
     _, thresh = cv2.threshold(img_np, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU) # Using Otsu

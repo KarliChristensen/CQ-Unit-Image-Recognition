@@ -1,10 +1,11 @@
 # functions.py
 
-import pyautogui, time, json, autoit
+import pyautogui, json, autoit
 from config import OUTPUT_JSON_FILES
 from .navigation import move
+from .ocr import perform_ocr_single_line
 
-def capture_hover_popup(button_region, output_path="dynamic_popup.png", yellow_colors=None, title_color_hex="#9D9D9D", yellow_text_offset_up=25, yellow_text_offset_left=411):
+def capture_hover_popup(button_region, yellow_colors=None, title_color_hex="#9D9D9D", yellow_text_offset_up=25, yellow_text_offset_left=411):
     try:
         button_left, button_top, button_width, button_height = button_region
         title_color_rgb = hex_to_rgb(title_color_hex)
@@ -19,10 +20,8 @@ def capture_hover_popup(button_region, output_path="dynamic_popup.png", yellow_c
                 if colors_are_similar(rgb, yellow, color_tolerance):
                     return True
             return False
-
-        center_x = button_left + button_width // 2
-        center_y = button_top + button_height // 2
-        move((center_x, center_y))
+        
+        move(button_region)
 
         expected_yellow_text_x = button_left - yellow_text_offset_left
         expected_yellow_text_y_start = button_top - yellow_text_offset_up
@@ -54,8 +53,8 @@ def capture_hover_popup(button_region, output_path="dynamic_popup.png", yellow_c
                     break
 
             if title_top != -1:
-                popup_left = yellow_text_x - 5 - 10 
-                popup_top = title_top - 5 - 10
+                popup_left = yellow_text_x - 15 
+                popup_top = title_top - 20
                 popup_right = button_left
                 popup_bottom = button_top
 
@@ -67,10 +66,42 @@ def capture_hover_popup(button_region, output_path="dynamic_popup.png", yellow_c
                 final_popup_width = final_popup_right - final_popup_left
                 final_popup_height = final_popup_bottom - final_popup_top
 
+                title_box = (400, 29)
+                text_box = (400, 24)
+                translate = (24)
+
+                # --- MODIFIED LINE ---
+                text_content_height = final_popup_height - 100
+                remainder = text_content_height % 23
+                if remainder <= 23 / 2:
+                    adjusted_text_height = text_content_height - remainder
+                else:
+                    adjusted_text_height = text_content_height + (23 - remainder)
+                final_popup_height = adjusted_text_height + 100
+                # --- MODIFIED LINE ---
+
+                lines = int(adjusted_text_height / 23) + 1 if final_popup_height > 100 and 23 != 0 else 0
+
+                captured_title = []
+                captured_text = []
+
+                title_region_coords = (final_popup_left + 4, final_popup_top, title_box[0], title_box[1])
+                title_screenshot = pyautogui.screenshot(region=title_region_coords)
+                title_text = perform_ocr_single_line(title_screenshot, debug=False, threshold=True, threshold_value=100)
+                captured_title.append(title_text)
+
+                for i in range(1, lines + 1):
+                    text_y = final_popup_top + 30 + title_box[1] + (i - 1) * translate
+                    current_text_region_coords = (final_popup_left + 4, text_y, text_box[0], text_box[1])
+                    text_screenshot = pyautogui.screenshot(region=current_text_region_coords)
+                    text_block = perform_ocr_single_line(text_screenshot, debug=False, threshold=True, threshold_value=100)
+                    captured_text.append(text_block)
+
+                extracted_title = " ".join(filter(None, captured_title)).strip()
+                extracted_text = " ".join(filter(None, captured_text)).strip()
+
                 if final_popup_width > 0 and final_popup_height > 0:
-                    screenshot = pyautogui.screenshot(region=(final_popup_left, final_popup_top, final_popup_width, final_popup_height))
-                    screenshot.save(output_path)
-                    return output_path
+                    return extracted_title, extracted_text
                 else:
                     return None
             else:
@@ -128,21 +159,3 @@ def is_button_present(region, grey_rgb, tolerance):
 
 def colors_are_similar(rgb1, rgb2, color_tolerance):
     return all(abs(c1 - c2) <= color_tolerance for c1, c2 in zip(rgb1, rgb2))
-
-debug_screenshot_counter = 0
-debug_save_counter = 0
-
-def screenshot_element(region):
-    global debug_screenshot_counter
-    debug_screenshot_counter += 1
-    screenshot = pyautogui.screenshot(region)
-    filename = f"screenshot_{filename + "DEBUG_"+debug_screenshot_counter}.png"
-    screenshot.save(filename)
-    return filename
-
-def save_element(image):
-    global debug_save_counter
-    debug_save_counter += 1
-    filename = f"DEBUG_{debug_save_counter}.png"  
-    image.save(filename)
-    return filename

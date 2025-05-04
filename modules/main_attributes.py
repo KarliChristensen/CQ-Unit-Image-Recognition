@@ -34,7 +34,7 @@ def main_attributes_extraction():
 def extract_unit_name():
     unit_name_region = UNIT_NAME_REGION
     screenshot_unit_name = pyautogui.screenshot(region=unit_name_region)
-    name_text = perform_ocr(screenshot_unit_name, debug=True, threshold=True, threshold_value=180)
+    name_text = perform_ocr(screenshot_unit_name, debug=False, threshold=True, threshold_value=180)
     if name_text is not None:
         normalized_text = re.sub(r'\s+', ' ', name_text).strip()
         return normalized_text.lower()

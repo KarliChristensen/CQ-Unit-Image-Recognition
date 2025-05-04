@@ -3,8 +3,8 @@
 import os
 import cv2
 import numpy as np
+from config import DEBUG_PARENT_FOLDER
 
-DEBUG_PARENT_FOLDER = "Debug"
 CURRENT_UNIT_NAME = None
 
 def set_unit_name(unit_name):

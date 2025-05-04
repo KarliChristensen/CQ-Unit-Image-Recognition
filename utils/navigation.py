@@ -1,17 +1,40 @@
-# navigation.py
-
-import autoit, time
+import autoit
+import time
 
 def move_and_click(coordinates):
-    x, y = coordinates
-    autoit.mouse_move(x, y)
+    try:
+        if len(coordinates) == 4:
+            x, y, width, height = coordinates
+            center_x = x + width // 2
+            center_y = y + height // 2
+        elif len(coordinates) == 2:
+            center_x, center_y = coordinates
+        else:
+            raise ValueError("Coordinates must be a tuple or list of two or four numbers.")
+    except TypeError:
+        raise ValueError("Coordinates must be a tuple or list.")
+    except ValueError as e:
+        raise e  # Re-raise the ValueError with the specific message
+    autoit.mouse_move(center_x, center_y)
     autoit.mouse_down("left")
     time.sleep(0.05)
     autoit.mouse_up("left")
     time.sleep(0.05)
 
 def move(coordinates):
-    x, y = coordinates
+    try:
+        if len(coordinates) == 4:
+            x, y, width, height = coordinates
+            center_x = x + width // 2
+            center_y = y + height // 2
+        elif len(coordinates) == 2:
+            center_x, center_y = coordinates
+        else:
+            raise ValueError("Coordinates must be a tuple or list of two or four numbers.")
+    except TypeError:
+        raise ValueError("Coordinates must be a tuple or list.")
+    except ValueError as e:
+        raise e  # Re-raise the ValueError with the specific message
     time.sleep(0.05)
-    autoit.mouse_move(x, y)
+    autoit.mouse_move(center_x, center_y)
     time.sleep(0.05)
