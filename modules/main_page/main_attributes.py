@@ -82,7 +82,6 @@ def extract_unit_type():
     if type_text:
         normalized_text = re.sub(r'\s+', ' ', type_text).strip().replace("_", " ").replace("_", " ")
         parts = normalized_text.split("-")
-        print(normalized_text)
 
         if len(parts) > 0:
             primary_type_part = parts[0].strip()

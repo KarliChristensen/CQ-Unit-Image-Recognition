@@ -1,14 +1,12 @@
 # unit_specific_attributes.py
 
 import pyautogui
-from utils.functions import is_button_present, capture_hover_popup
 from utils.error_handling import handle_ocr_error
 from utils.ocr import perform_ocr
-from utils.navigation import move
 from .trait_handler import capture_unit_traits
 from .formation_handler import capture_unit_formations
 from .orders_handler import capture_unit_orders
-from config import BOX_GREY_RGB, BOX_COLOR_TOLERANCE, ORDERS_POTENTIAL_REGIONS, TERRAIN_Y_LINE, TERRAIN_X_START, TERRAIN_X_OFFSET, TERRAIN_BOX
+from config import TERRAIN_Y_LINE, TERRAIN_X_START, TERRAIN_X_OFFSET, TERRAIN_BOX
 
 def unit_specific_attributes_extraction():
     terrain = terrain_extraction()

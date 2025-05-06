@@ -5,14 +5,16 @@ from config import OUTPUT_JSON_FILES
 from .navigation import move
 from .ocr import perform_ocr_single_line
 
-def capture_hover_popup(button_region, yellow_colors=None, title_color_hex="#9D9D9D", yellow_text_offset_up=25, yellow_text_offset_left=411):
-    try:
-        button_left, button_top, button_width, button_height = button_region
-        title_color_rgb = hex_to_rgb(title_color_hex)
+def capture_hover_popup(button_region):
+    from config import YELLOW_SHADES, TITLE_SHADE
 
-        if yellow_colors is None:
-            yellow_colors_hex = ["#A69879", "#AA9B7C", "#95896D"]
-            yellow_colors = [hex_to_rgb(hex_code) for hex_code in yellow_colors_hex]
+    yellow_text_offset_up=25
+    yellow_text_offset_left=411
+
+    try:
+        button_left, button_top, _, _ = button_region
+        title_color_rgb = hex_to_rgb(TITLE_SHADE)
+        yellow_colors = [hex_to_rgb(hex_code) for hex_code in YELLOW_SHADES]
 
         def is_yellow(rgb, yellow_colors_local):
             color_tolerance = 10
@@ -20,40 +22,34 @@ def capture_hover_popup(button_region, yellow_colors=None, title_color_hex="#9D9
                 if colors_are_similar(rgb, yellow, color_tolerance):
                     return True
             return False
-        
+
         move(button_region)
 
-        expected_yellow_text_x = button_left - yellow_text_offset_left
-        expected_yellow_text_y_start = button_top - yellow_text_offset_up
-
         found_yellow = False
-        yellow_text_x = -1
-        yellow_text_y_start = -1
-        for x_offset in range(-2, 2):
-            for y_offset in range(-2, 2):
-                sample_x = expected_yellow_text_x + x_offset
-                sample_y = expected_yellow_text_y_start + y_offset
-                if 0 <= sample_x < pyautogui.size()[0] and 0 <= sample_y < pyautogui.size()[1]:
-                    pixel_color = pyautogui.pixel(int(sample_x), int(sample_y))
-                    if is_yellow(pixel_color, yellow_colors):
-                        yellow_text_x = sample_x
-                        yellow_text_y_start = sample_y
-                        found_yellow = True
-                        break
-            if found_yellow:
-                break
+        yellow_text_x = int(button_left - yellow_text_offset_left)
+        yellow_text_y_start = int(button_top - yellow_text_offset_up)
+
+        if 0 <= yellow_text_x < pyautogui.size()[0] and 0 <= yellow_text_y_start < pyautogui.size()[1]:
+            pixel_color = pyautogui.pixel(yellow_text_x, yellow_text_y_start)
+            if is_yellow(pixel_color, yellow_colors):
+                found_yellow = True
+        else:
+            print(f"Warning: Expected yellow text coordinates (x={yellow_text_x}, y={yellow_text_y_start}) are out of screen bounds.")
+
+        if not found_yellow:
+            print(f"Warning: Yellow text not found at the expected coordinates (x={yellow_text_x}, y={yellow_text_y_start}).")
+            return None, "Yellow text not found"
 
         if found_yellow:
-       
             title_top = -1
-            for y in range(yellow_text_y_start - 5, max(0, yellow_text_y_start - 300), -1):
-                pixel_color = pyautogui.pixel(int(yellow_text_x), int(y))
-                if colors_are_similar(pixel_color, title_color_rgb, color_tolerance=5): 
+            for y in range(yellow_text_y_start - 1, max(0, yellow_text_y_start - 300), -1):
+                pixel_color = pyautogui.pixel(yellow_text_x, y)
+                if colors_are_similar(pixel_color, title_color_rgb, color_tolerance=5):
                     title_top = y
                     break
 
             if title_top != -1:
-                popup_left = yellow_text_x - 15 
+                popup_left = yellow_text_x - 15
                 popup_top = title_top - 20
                 popup_right = button_left
                 popup_bottom = button_top
@@ -70,7 +66,6 @@ def capture_hover_popup(button_region, yellow_colors=None, title_color_hex="#9D9
                 text_box = (400, 24)
                 translate = (24)
 
-                # --- MODIFIED LINE ---
                 text_content_height = final_popup_height - 100
                 remainder = text_content_height % 23
                 if remainder <= 23 / 2:
@@ -78,7 +73,6 @@ def capture_hover_popup(button_region, yellow_colors=None, title_color_hex="#9D9
                 else:
                     adjusted_text_height = text_content_height + (23 - remainder)
                 final_popup_height = adjusted_text_height + 100
-                # --- MODIFIED LINE ---
 
                 lines = int(adjusted_text_height / 23) + 1 if final_popup_height > 100 and 23 != 0 else 0
 
@@ -87,14 +81,14 @@ def capture_hover_popup(button_region, yellow_colors=None, title_color_hex="#9D9
 
                 title_region_coords = (final_popup_left + 4, final_popup_top, title_box[0], title_box[1])
                 title_screenshot = pyautogui.screenshot(region=title_region_coords)
-                title_text = perform_ocr_single_line(title_screenshot, debug=False, threshold=True, threshold_value=100)
+                title_text = perform_ocr_single_line(title_screenshot, debug=False, threshold=True, threshold_value=110)
                 captured_title.append(title_text)
 
                 for i in range(1, lines + 1):
                     text_y = final_popup_top + 30 + title_box[1] + (i - 1) * translate
                     current_text_region_coords = (final_popup_left + 4, text_y, text_box[0], text_box[1])
                     text_screenshot = pyautogui.screenshot(region=current_text_region_coords)
-                    text_block = perform_ocr_single_line(text_screenshot, debug=False, threshold=True, threshold_value=100)
+                    text_block = perform_ocr_single_line(text_screenshot, debug=False, threshold=True, threshold_value=110)
                     captured_text.append(text_block)
 
                 extracted_title = " ".join(filter(None, captured_title)).strip()
@@ -103,16 +97,14 @@ def capture_hover_popup(button_region, yellow_colors=None, title_color_hex="#9D9
                 if final_popup_width > 0 and final_popup_height > 0:
                     return extracted_title, extracted_text
                 else:
-                    return None
+                    return None, "Invalid popup dimensions"
             else:
-                return None
-        else:
-            return None
+                return None, "Title not found above yellow text"
 
     except Exception as e:
         print(f"Error capturing dynamic hover pop-up (text-based - final - area scan): {e}")
-        return None
-    
+        return None, f"Exception: {e}"
+
 def append_unit_to_json(unit_data):
     primary_type = unit_data.get('primary_type')
     if primary_type in OUTPUT_JSON_FILES:

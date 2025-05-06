@@ -1,8 +1,8 @@
-import modules.main_attributes as main_attributes
-import modules.basic_attributes as basic_attributes
-import modules.attack_attributes as attack_attributes
-import modules.defence_attributes as defence_attributes
-import modules.unit_specific_attributes as unit_specific_attributes
+import modules.main_page.main_attributes as main_attributes
+import modules.main_page.basic_attributes as basic_attributes
+import modules.main_page.attack_attributes as attack_attributes
+import modules.main_page.defence_attributes as defence_attributes
+import modules.main_page.unit_specific_attributes as unit_specific_attributes
 import keyboard, json, sys, pyautogui
 from utils.navigation import move_and_click
 
@@ -28,6 +28,7 @@ def capture_on_hotkey():
         print("Defence data extracted, moving on...")
         unit_specific_data = unit_specific_attributes.unit_specific_attributes_extraction()
         move_and_click(VETERANCY_TAB_COORDINATES)
+        print("Capture completed succesfully.")
         screenshot()
 
         unit_data = {
@@ -106,7 +107,7 @@ def interrupt_and_reset():
     interrupt_capture = True
 
 def terminate_script():
-    print(f"Terminateed...")
+    print(f"Terminated...")
     sys.exit()
 
 def main():

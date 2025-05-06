@@ -20,9 +20,6 @@ def process_formation(region, i):
     filename = f"orders_icon_{i+1}.png"
     pyautogui.screenshot(filename, region=region)
     title, text = capture_hover_popup(region)
-    print(f"Extracted title: {title}")
-    print(f"Extracted text: {text}")
-
     return {
         "formation title": title,
         "formation text": text,

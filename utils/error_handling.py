@@ -1,5 +1,3 @@
-# error_handling.py
-
 import os
 import cv2
 import numpy as np
@@ -34,7 +32,7 @@ def handle_ocr_error(screenshot, attribute_name, unit_name=None, expected_type=N
             print("Warning: Thresholded image (cv2_image) is None, saving original screenshot.")
             screenshot.save(filename)
         return None
-    
+
     elif ocr_text is None and cv2_image is None:
         print(f"{warning_prefix} extraction failed. Image saved to {filename}.")
         if cv2_image is not None and isinstance(cv2_image, np.ndarray):
@@ -43,8 +41,11 @@ def handle_ocr_error(screenshot, attribute_name, unit_name=None, expected_type=N
             screenshot.save(filename)
         return None
     elif expected_type == int and ocr_text is not None:
+        cleaned_text = ocr_text.strip()
+        if cleaned_text in ('-', '.'):
+            return None
         try:
-            value = int(ocr_text.strip())
+            value = int(cleaned_text)
             if value <= 0:
                 print(f"{warning_prefix} value is invalid: '{value}'. Image saved to {filename}.")
                 if cv2_image is not None and isinstance(cv2_image, np.ndarray):
@@ -81,4 +82,4 @@ def handle_ocr_error(screenshot, attribute_name, unit_name=None, expected_type=N
         cv2.imwrite(filename, cv2_image)
         return None
     else:
-        return None # Default to None if no specific handling and no error
+        return None

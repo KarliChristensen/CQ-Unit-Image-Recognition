@@ -19,12 +19,19 @@ def capture_unit_formations():
 def process_formation(region, i):
     filename = f"formation_icon_{i+1}.png"
     pyautogui.screenshot(filename, region=region)
-    title, text = capture_hover_popup(region)
-    print(f"Extracted title: {title}")
-    print(f"Extracted text: {text}")
-
-    return {
-        "formation title": title,
-        "formation text": text,
-        "modifiers": []
-    }
+    result = capture_hover_popup(region)
+    if result and result[0] is not None:
+        title, text = result
+        return {
+            "formation title": title,
+            "formation text": text,
+            "modifiers": []
+        }
+    else:
+        error_message = result[1] if result else "Unknown error during popup capture"
+        print(f"Error capturing formation data for region {i+1}: {error_message}")
+        return {
+            "formation title": None,
+            "formation text": None,
+            "modifiers": [],
+        }
